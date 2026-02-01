@@ -1,0 +1,7 @@
+# OpenClaw Voice Loop Integration
+# Minimal dependencies - uses stdlib for most functionality
+
+# Environment & Configuration
+python-dotenv>=1.0.0
+
+# No other dependencies needed - uses standard library threading, pathlib, time, logging
