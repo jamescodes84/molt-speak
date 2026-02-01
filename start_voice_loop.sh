@@ -90,66 +90,36 @@ else
     exit 1
 fi
 
-# 2. Start OpenClaw Mouth
+# 2. Start Unified Audio System (Mouth + Ears in single process)
 echo ""
-echo -e "${YELLOW}[2/3]${NC} Starting OpenClaw Mouth (voice output)..."
-cd open_mouth
+echo -e "${YELLOW}[2/2]${NC} Starting Unified Audio System (Mouth + Ears)..."
 
-if [ ! -d "venv" ]; then
-    echo "      Creating virtual environment..."
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -q -r requirements.txt
-else
+# Activate venv if it exists
+if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-nohup python main.py > ~/.openclaw/logs/mouth.log 2>&1 &
-MOUTH_PID=$!
-echo "      PID: $MOUTH_PID"
-cd "$SCRIPT_DIR"
-sleep 2
+# Start unified audio system
+nohup python src/unified_audio.py > ~/.openclaw/logs/audio.log 2>&1 &
+AUDIO_PID=$!
+echo "      PID: $AUDIO_PID"
+sleep 3
 
-if ps -p $MOUTH_PID > /dev/null; then
-    echo -e "      ${GREEN}✓ OpenClaw Mouth started${NC}"
+if ps -p $AUDIO_PID > /dev/null; then
+    echo -e "      ${GREEN}✓ Unified Audio System started${NC}"
+    echo "      ${BLUE}  (Mouth + Ears running in single process)${NC}"
 else
-    echo -e "      ${RED}✗ Failed to start OpenClaw Mouth${NC}"
-    echo "      Check log: ~/.openclaw/logs/mouth.log"
-    exit 1
-fi
-
-# 3. Start OpenClaw Ears
-echo ""
-echo -e "${YELLOW}[3/3]${NC} Starting OpenClaw Ears (voice input)..."
-cd open_ears
-
-if [ ! -d "venv" ]; then
-    echo "      Creating virtual environment..."
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -q -r requirements.txt
-else
-    source venv/bin/activate
-fi
-
-nohup python main.py > ~/.openclaw/logs/ears.log 2>&1 &
-EARS_PID=$!
-echo "      PID: $EARS_PID"
-cd "$SCRIPT_DIR"
-sleep 2
-
-if ps -p $EARS_PID > /dev/null; then
-    echo -e "      ${GREEN}✓ OpenClaw Ears started${NC}"
-else
-    echo -e "      ${RED}✗ Failed to start OpenClaw Ears${NC}"
-    echo "      Check log: ~/.openclaw/logs/ears.log"
+    echo -e "      ${RED}✗ Failed to start Unified Audio System${NC}"
+    echo "      Check log: ~/.openclaw/logs/audio.log"
     exit 1
 fi
 
 # Save PIDs for shutdown script
 echo "$INTEGRATION_PID" > ~/.openclaw/integration.pid
-echo "$MOUTH_PID" > ~/.openclaw/mouth.pid
-echo "$EARS_PID" > ~/.openclaw/ears.pid
+echo "$AUDIO_PID" > ~/.openclaw/audio.pid
+# Keep old PID files for compatibility
+echo "$AUDIO_PID" > ~/.openclaw/mouth.pid
+echo "$AUDIO_PID" > ~/.openclaw/ears.pid
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -160,13 +130,12 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "${BLUE}Running Systems:${NC}"
 echo "  • Integration Coordinator (PID: $INTEGRATION_PID)"
-echo "  • OpenClaw Mouth          (PID: $MOUTH_PID)"
-echo "  • OpenClaw Ears           (PID: $EARS_PID)"
+echo "  • Unified Audio System    (PID: $AUDIO_PID)"
+echo "    ${BLUE}↳ OpenClaw Mouth + Ears (single process)${NC}"
 echo ""
 echo -e "${BLUE}Logs:${NC}"
 echo "  • Integration: tail -f ~/.openclaw/logs/integration.log"
-echo "  • Mouth:       tail -f ~/.openclaw/logs/mouth.log"
-echo "  • Ears:        tail -f ~/.openclaw/logs/ears.log"
+echo "  • Audio:       tail -f ~/.openclaw/logs/audio.log"
 echo ""
 echo -e "${BLUE}Agent Instructions:${NC}"
 echo "  • Check: cat ~/.openclaw/agent_instructions.active"
@@ -183,7 +152,7 @@ echo "  • Or use menu bar: 📝 Setup → Copy Echo Command"
 echo ""
 echo -e "${BLUE}To stop:${NC}"
 echo "  • Run: ./stop_voice_loop.sh"
-echo "  • Or:  kill $INTEGRATION_PID $MOUTH_PID $EARS_PID"
+echo "  • Or:  kill $INTEGRATION_PID $AUDIO_PID"
 echo ""
 echo -e "${GREEN}✓ Ready for voice conversations!${NC}"
 echo -e "${GREEN}  Speak naturally - commands appear in your agent automatically${NC}"

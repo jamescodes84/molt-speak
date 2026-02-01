@@ -59,15 +59,14 @@ stop_process() {
 }
 
 # Stop in reverse order
-echo -e "${BLUE}[1/3]${NC} Stopping OpenClaw Ears..."
-stop_process "OpenClaw Ears" ~/.openclaw/ears.pid
+echo -e "${BLUE}[1/2]${NC} Stopping Unified Audio System..."
+stop_process "Unified Audio System" ~/.openclaw/audio.pid
+# Also remove old PID files for compatibility
+rm -f ~/.openclaw/mouth.pid
+rm -f ~/.openclaw/ears.pid
 
 echo ""
-echo -e "${BLUE}[2/3]${NC} Stopping OpenClaw Mouth..."
-stop_process "OpenClaw Mouth" ~/.openclaw/mouth.pid
-
-echo ""
-echo -e "${BLUE}[3/3]${NC} Stopping Integration Coordinator..."
+echo -e "${BLUE}[2/2]${NC} Stopping Integration Coordinator..."
 stop_process "Integration Coordinator" ~/.openclaw/integration.pid
 
 # Clean up any remaining files
@@ -91,6 +90,5 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "${BLUE}Logs preserved at:${NC}"
 echo "  • ~/.openclaw/logs/integration.log"
-echo "  • ~/.openclaw/logs/mouth.log"
-echo "  • ~/.openclaw/logs/ears.log"
+echo "  • ~/.openclaw/logs/audio.log (Mouth + Ears combined)"
 echo ""
