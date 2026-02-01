@@ -41,14 +41,17 @@ class UnifiedAudioSystem:
         # Use venv python if available, otherwise system python
         python_cmd = str(mouth_venv) if mouth_venv.exists() else "python3"
 
+        # Open log file for Mouth
+        mouth_log = Path.home() / ".openclaw" / "logs" / "mouth.log"
+        mouth_log.parent.mkdir(parents=True, exist_ok=True)
+        mouth_log_file = open(mouth_log, "a")
+
         logger.info("Starting OpenClaw Mouth (TTS)...")
         self.mouth_process = subprocess.Popen(
             [python_cmd, str(mouth_main)],
             cwd=str(mouth_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
+            stdout=mouth_log_file,
+            stderr=subprocess.STDOUT
         )
         logger.info(f"✓ OpenClaw Mouth started (PID: {self.mouth_process.pid})")
 
@@ -61,14 +64,17 @@ class UnifiedAudioSystem:
         # Use venv python if available, otherwise system python
         python_cmd = str(ears_venv) if ears_venv.exists() else "python3"
 
+        # Open log file for Ears
+        ears_log = Path.home() / ".openclaw" / "logs" / "ears.log"
+        ears_log.parent.mkdir(parents=True, exist_ok=True)
+        ears_log_file = open(ears_log, "a")
+
         logger.info("Starting OpenClaw Ears (voice input)...")
         self.ears_process = subprocess.Popen(
             [python_cmd, str(ears_main)],
             cwd=str(ears_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
+            stdout=ears_log_file,
+            stderr=subprocess.STDOUT
         )
         logger.info(f"✓ OpenClaw Ears started (PID: {self.ears_process.pid})")
 

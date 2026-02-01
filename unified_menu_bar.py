@@ -238,6 +238,14 @@ class VoiceLoopMenuBar(rumps.App):
             )
 
             if result.returncode == 0:
+                # Clear speech output queue to prevent old messages on restart
+                speech_output = self.openclaw_dir / "speech_output.txt"
+                try:
+                    speech_output.write_text("")
+                    logger.info("Cleared speech output queue")
+                except Exception as e:
+                    logger.warning(f"Failed to clear speech queue: {e}")
+
                 rumps.notification(
                     "Voice Loop Stopped",
                     "",
@@ -538,21 +546,25 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
         rumps.alert("Troubleshooting", msg)
 
     def on_quit(self, sender):
-        """Quit the menu bar app (doesn't stop systems)."""
-        response = rumps.alert(
-            "Quit Menu Bar App",
-            "This will quit the menu bar app but leave the voice loop running.\n\nDo you want to stop the voice loop first?",
-            ok="Just Quit",
-            cancel="Stop & Quit",
-            other="Cancel"
-        )
+        """Quit the menu bar app and stop all voice loop processes."""
+        # Check if voice loop is running
+        any_running = self.integration_running or self.mouth_running or self.ears_running
 
-        if response == 0:  # Just Quit
+        if any_running:
+            response = rumps.alert(
+                "Quit Menu Bar App",
+                "The voice loop is currently running.\n\nQuitting will stop all voice systems.",
+                ok="Stop & Quit",
+                cancel="Cancel"
+            )
+
+            if response == 1:  # OK = Stop & Quit
+                self.on_stop_all(None)
+                rumps.quit_application()
+            # else: Cancel, do nothing
+        else:
+            # Nothing running, just quit
             rumps.quit_application()
-        elif response == 2:  # Stop & Quit
-            self.on_stop_all(None)
-            rumps.quit_application()
-        # else: Cancel, do nothing
 
 
 def main():
