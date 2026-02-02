@@ -1,14 +1,18 @@
-# OpenSpeak Voice Loop System
+# Molt-Speak Voice Loop System
 
 Complete voice interaction system for AI agents on macOS, featuring voice input (Ears), text-to-speech output (Mouth), and intelligent echo prevention.
+
+## ⚠️ IMPORTANT REQUIREMENT
+
+**You MUST have OpenClaw TUI running in its own terminal window for Molt-Speak to work.**
+
+The voice system types transcribed speech directly into the OpenClaw agent. Without an agent running, there's nothing to talk to!
 
 ## 🚀 Quick Install (One-Line)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jamescodes84/open_speak/poc/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/install.sh | bash
 ```
-
-> ⚠️ **Prerequisite:** You must have [OpenClaw TUI](https://github.com/anthropics/claude-code) running in its own terminal window for Molt-Speak to work. The voice system types transcribed speech into the OpenClaw agent.
 
 After installation:
 ```bash
