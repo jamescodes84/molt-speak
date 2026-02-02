@@ -74,16 +74,20 @@ echo -e "${GREEN}✓${NC} Repository ready at $INSTALL_DIR"
 # Set up Python virtual environment
 echo -e "${YELLOW}! Setting up Python virtual environment...${NC}"
 
-# Main environment
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
+# Deactivate any existing venv first
+deactivate 2>/dev/null || true
+
+# Main environment - use absolute paths
+MAIN_VENV="$INSTALL_DIR/venv"
+if [ ! -d "$MAIN_VENV" ]; then
+    python3 -m venv "$MAIN_VENV"
 fi
-source venv/bin/activate
+source "$MAIN_VENV/bin/activate"
 pip install --upgrade pip
 
 # Install dependencies
-if [ -f "requirements.txt" ]; then
-    pip install -r requirements.txt
+if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+    pip install -r "$INSTALL_DIR/requirements.txt"
 else
     echo -e "${YELLOW}Warning: No requirements.txt found${NC}"
 fi
@@ -99,17 +103,23 @@ echo -e "${GREEN}✓${NC} Virtual environment configured"
 echo -e "${YELLOW}! Setting up open_mouth and open_ears environments...${NC}"
 
 for dir in open_mouth open_ears; do
-    if [ -d "$dir" ]; then
-        echo -e "${BLUE}  Setting up $dir...${NC}"
-        cd "$INSTALL_DIR/$dir"
+    DIR_PATH="$INSTALL_DIR/$dir"
+    VENV_PATH="$DIR_PATH/venv"
 
-        if [ ! -d "venv" ]; then
-            echo "    Creating virtual environment..."
-            python3 -m venv venv
+    if [ -d "$DIR_PATH" ]; then
+        echo -e "${BLUE}  Setting up $dir...${NC}"
+
+        # Remove existing venv to ensure clean install
+        if [ -d "$VENV_PATH" ]; then
+            echo "    Removing old virtual environment..."
+            rm -rf "$VENV_PATH"
         fi
 
-        if [ -f "requirements.txt" ]; then
-            source venv/bin/activate
+        echo "    Creating virtual environment..."
+        python3 -m venv "$VENV_PATH"
+
+        if [ -f "$DIR_PATH/requirements.txt" ]; then
+            source "$VENV_PATH/bin/activate"
             echo "    Upgrading pip..."
             pip install --upgrade pip > /dev/null 2>&1
 
@@ -119,7 +129,7 @@ for dir in open_mouth open_ears; do
                 echo "    Installing dependencies..."
             fi
 
-            pip install -r requirements.txt 2>&1 | while IFS= read -r line; do
+            pip install -r "$DIR_PATH/requirements.txt" 2>&1 | while IFS= read -r line; do
                 if [[ "$line" =~ "Collecting" ]] || [[ "$line" =~ "Downloading" ]] || [[ "$line" =~ "Installing" ]]; then
                     echo "      $line"
                 fi

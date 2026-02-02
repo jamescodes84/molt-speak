@@ -123,28 +123,6 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(rumps.separator)
 
-        # Quick start modes
-        modes_menu = rumps.MenuItem("🎯 Start Mode")
-
-        modes_menu.add(rumps.MenuItem("Both (Full Loop)", callback=self.on_start_all))
-        desc = rumps.MenuItem("   Voice input + output together")
-        desc.set_callback(None)
-        modes_menu.add(desc)
-
-        modes_menu.add(rumps.MenuItem("Mouth Only (TTS)", callback=self.on_start_mouth_only))
-        desc = rumps.MenuItem("   Text-to-speech output only")
-        desc.set_callback(None)
-        modes_menu.add(desc)
-
-        modes_menu.add(rumps.MenuItem("Ears Only (STT)", callback=self.on_start_ears_only))
-        desc = rumps.MenuItem("   Voice input only")
-        desc.set_callback(None)
-        modes_menu.add(desc)
-
-        self.menu.add(modes_menu)
-
-        self.menu.add(rumps.separator)
-
         # Individual controls submenu
         controls = rumps.MenuItem("Individual Controls")
 
@@ -175,49 +153,6 @@ class VoiceLoopMenuBar(rumps.App):
         self.menu.add(controls)
 
         self.menu.add(rumps.separator)
-
-        # Logs submenu
-        logs_menu = rumps.MenuItem("📋 View Logs")
-
-        logs_menu.add(rumps.MenuItem("Integration Log", callback=self.on_view_integration_log))
-        desc = rumps.MenuItem("   Echo prevention coordinator")
-        desc.set_callback(None)
-        logs_menu.add(desc)
-
-        logs_menu.add(rumps.MenuItem("Mouth Log", callback=self.on_view_mouth_log))
-        desc = rumps.MenuItem("   Voice output (TTS)")
-        desc.set_callback(None)
-        logs_menu.add(desc)
-
-        logs_menu.add(rumps.MenuItem("Ears Log", callback=self.on_view_ears_log))
-        desc = rumps.MenuItem("   Voice input (transcription)")
-        desc.set_callback(None)
-        logs_menu.add(desc)
-
-        logs_menu.add(rumps.separator)
-        logs_menu.add(rumps.MenuItem("All Logs (Combined)", callback=self.on_view_all_logs))
-        self.menu.add(logs_menu)
-
-        # Visualizers submenu
-        viz_menu = rumps.MenuItem("📊 Visualizers")
-
-        viz_menu.add(rumps.MenuItem("Open Ears Visualizer", callback=self.on_open_ears_visualizer))
-        desc = rumps.MenuItem("   See mic input levels")
-        desc.set_callback(None)
-        viz_menu.add(desc)
-
-        viz_menu.add(rumps.MenuItem("Open Mouth Visualizer", callback=self.on_open_mouth_visualizer))
-        desc = rumps.MenuItem("   See TTS output status")
-        desc.set_callback(None)
-        viz_menu.add(desc)
-
-        viz_menu.add(rumps.separator)
-        viz_menu.add(rumps.MenuItem("Open Both Visualizers", callback=self.on_open_both_visualizers))
-        desc = rumps.MenuItem("   Monitor full system")
-        desc.set_callback(None)
-        viz_menu.add(desc)
-
-        self.menu.add(viz_menu)
 
         # Voice selection submenu
         voice_menu = rumps.MenuItem("🎤 Voice")
@@ -250,93 +185,6 @@ class VoiceLoopMenuBar(rumps.App):
         voice_menu.add(rumps.MenuItem("List All System Voices", callback=self.on_list_voices))
 
         self.menu.add(voice_menu)
-
-        # Configuration submenu
-        config_menu = rumps.MenuItem("⚙️  Configuration")
-
-        config_menu.add(rumps.MenuItem("Open Config Directory", callback=self.on_open_config_dir))
-        desc = rumps.MenuItem("   Project runtime folder")
-        desc.set_callback(None)
-        config_menu.add(desc)
-
-        config_menu.add(rumps.MenuItem("View Agent Instructions", callback=self.on_view_instructions))
-        desc = rumps.MenuItem("   Voice system usage guide")
-        desc.set_callback(None)
-        config_menu.add(desc)
-
-        config_menu.add(rumps.MenuItem("Inject Instructions to TUI", callback=self.on_inject_instructions))
-        desc = rumps.MenuItem("   Send voice setup to agent")
-        desc.set_callback(None)
-        config_menu.add(desc)
-
-        config_menu.add(rumps.MenuItem("Window Targeting Settings", callback=self.on_window_targeting_help))
-        desc = rumps.MenuItem("   Configure terminal detection")
-        desc.set_callback(None)
-        config_menu.add(desc)
-
-        self.menu.add(config_menu)
-
-        self.menu.add(rumps.separator)
-
-        # Quick actions
-        self.menu.add(rumps.MenuItem("📁 Open Project Folder", callback=self.on_open_project))
-        desc = rumps.MenuItem("   Open in Finder")
-        desc.set_callback(None)
-        self.menu.add(desc)
-
-        self.menu.add(rumps.MenuItem("🔄 Refresh Status", callback=lambda _: self.update_status(None)))
-        desc = rumps.MenuItem("   Update system status")
-        desc.set_callback(None)
-        self.menu.add(desc)
-
-        self.menu.add(rumps.separator)
-
-        # Setup Instructions
-        setup_menu = rumps.MenuItem("📝 Setup")
-
-        setup_menu.add(rumps.MenuItem("1️⃣ Copy This Echo Command", callback=self.on_copy_title_command))
-        desc = rumps.MenuItem("   Sets terminal window title")
-        desc.set_callback(None)
-        setup_menu.add(desc)
-
-        setup_menu.add(rumps.MenuItem("2️⃣ Paste in Terminal, Start Agent", callback=self.on_show_full_setup))
-        desc = rumps.MenuItem("   Run your agent")
-        desc.set_callback(None)
-        setup_menu.add(desc)
-
-        setup_menu.add(rumps.separator)
-
-        setup_menu.add(rumps.MenuItem("Show Setup Steps", callback=self.on_show_setup_steps))
-        desc = rumps.MenuItem("   Full setup instructions")
-        desc.set_callback(None)
-        setup_menu.add(desc)
-
-        setup_menu.add(rumps.MenuItem("Configure Window Pattern", callback=self.on_configure_pattern))
-        desc = rumps.MenuItem("   Set terminal title pattern")
-        desc.set_callback(None)
-        setup_menu.add(desc)
-
-        self.menu.add(setup_menu)
-
-        # Help
-        help_menu = rumps.MenuItem("❓ Help")
-
-        help_menu.add(rumps.MenuItem("Quick Start Guide", callback=self.on_quick_start))
-        desc = rumps.MenuItem("   Get started quickly")
-        desc.set_callback(None)
-        help_menu.add(desc)
-
-        help_menu.add(rumps.MenuItem("Window Targeting Docs", callback=self.on_window_targeting_docs))
-        desc = rumps.MenuItem("   Auto terminal detection")
-        desc.set_callback(None)
-        help_menu.add(desc)
-
-        help_menu.add(rumps.MenuItem("Troubleshooting", callback=self.on_troubleshooting))
-        desc = rumps.MenuItem("   Fix common issues")
-        desc.set_callback(None)
-        help_menu.add(desc)
-
-        self.menu.add(help_menu)
 
         self.menu.add(rumps.separator)
 
