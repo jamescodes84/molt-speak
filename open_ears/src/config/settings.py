@@ -30,15 +30,15 @@ LOG_FILE: Optional[str] = os.getenv("LOG_FILE")
 # ============================================================================
 # Model Configuration
 # ============================================================================
-WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "tiny")
+WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
 COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 
 # ============================================================================
 # Audio Configuration
 # ============================================================================
 SAMPLE_RATE: int = int(os.getenv("SAMPLE_RATE", "16000"))
-SPEECH_THRESHOLD: int = int(os.getenv("SPEECH_THRESHOLD", "500"))
-SEGMENT_DURATION: float = float(os.getenv("SEGMENT_DURATION", "1.5"))
+SPEECH_THRESHOLD: int = int(os.getenv("SPEECH_THRESHOLD", "200"))
+SEGMENT_DURATION: float = float(os.getenv("SEGMENT_DURATION", "3.0"))
 
 # ============================================================================
 # Performance Tuning
