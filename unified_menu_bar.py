@@ -756,7 +756,7 @@ if targetApp is "Terminal" then
             tell application "Terminal" to activate
             delay 0.2
             tell application "System Events"
-                keystroke "v" using {command down}
+                keystroke "v" using {{command down}}
                 keystroke return
             end tell
             set foundIt to true
@@ -783,7 +783,7 @@ else if targetApp is "iTerm2" then
             tell application "iTerm2" to activate
             delay 0.2
             tell application "System Events"
-                keystroke "v" using {command down}
+                keystroke "v" using {{command down}}
                 keystroke return
             end tell
             set foundIt to true
