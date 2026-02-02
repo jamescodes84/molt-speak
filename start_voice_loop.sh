@@ -49,6 +49,29 @@ if [ ! -f "main.py" ]; then
     exit 1
 fi
 
+# Check if voice loop is already running
+if [ -f "$RUNTIME_DIR/integration.pid" ] && [ -f "$RUNTIME_DIR/audio.pid" ]; then
+    INTEGRATION_PID=$(cat "$RUNTIME_DIR/integration.pid" 2>/dev/null)
+    AUDIO_PID=$(cat "$RUNTIME_DIR/audio.pid" 2>/dev/null)
+
+    # Check if both processes are actually running
+    if ps -p "$INTEGRATION_PID" > /dev/null 2>&1 && ps -p "$AUDIO_PID" > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ Voice loop is already running${NC}"
+        echo ""
+        echo -e "${BLUE}Running Systems:${NC}"
+        echo "  • Integration Coordinator (PID: $INTEGRATION_PID)"
+        echo "  • Unified Audio System    (PID: $AUDIO_PID)"
+        echo ""
+        echo -e "${GREEN}✓ Voice loop is active and running${NC}"
+        echo ""
+        echo -e "${BLUE}To stop:${NC}"
+        echo "  • Run: ./stop_voice_loop.sh"
+        echo "  • Or:  kill $INTEGRATION_PID $AUDIO_PID"
+        echo ""
+        exit 0
+    fi
+fi
+
 echo -e "${BLUE}Starting systems in background...${NC}"
 echo ""
 
