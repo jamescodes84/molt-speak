@@ -6,7 +6,8 @@ from pathlib import Path
 from queue import Queue
 from threading import Event, Thread
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+from watchdog.events import FileSystemEventHandler, FileModifiedEvent, DirModifiedEvent
+from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class TextFileHandler(FileSystemEventHandler):
         self.text_queue = text_queue
         self.last_position = last_position
 
-    def on_modified(self, event: FileModifiedEvent) -> None:
+    def on_modified(self, event: Union[FileModifiedEvent, DirModifiedEvent]) -> None:
         """
         Handle file modification events.
 

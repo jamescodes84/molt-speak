@@ -16,7 +16,7 @@ class OpenClawMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        super().__init__("🎙️", quit_button=None)
+        super().__init__("🎙️", quit_button=None)  # type: ignore[arg-type]
 
         # Initialize components
         self.control = ControlClient()

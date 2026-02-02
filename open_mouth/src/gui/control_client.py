@@ -134,7 +134,7 @@ class ControlClient:
             True if successful, False otherwise
         """
         response = self.send_command(f"CHANGE_RATE:{rate}")
-        return response and response.startswith("OK:") if response else False
+        return bool(response and response.startswith("OK:"))
 
     def change_volume(self, volume: float) -> bool:
         """
@@ -147,7 +147,7 @@ class ControlClient:
             True if successful, False otherwise
         """
         response = self.send_command(f"CHANGE_VOLUME:{volume}")
-        return response and response.startswith("OK:") if response else False
+        return bool(response and response.startswith("OK:"))
 
     def is_connected(self) -> bool:
         """
