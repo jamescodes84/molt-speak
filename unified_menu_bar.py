@@ -175,11 +175,8 @@ class VoiceLoopMenuBar(rumps.App):
         self.build_menu()
 
         # Notify user and restart voice loop if running
+        rumps.alert("Voice Changed", "I've changed my voice as requested.")
         if self.mouth_running:
-            rumps.alert(
-                "Voice Changed",
-                f"Voice set to {voice_name}.\n\nRestarting voice loop to apply..."
-            )
             import threading
             def restart_voice_loop():
                 try:
@@ -195,11 +192,6 @@ class VoiceLoopMenuBar(rumps.App):
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
-        else:
-            rumps.alert(
-                "Voice Changed",
-                f"Voice set to {voice_name}.\n\nWill be used when voice loop starts."
-            )
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
