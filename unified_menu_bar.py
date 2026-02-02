@@ -797,6 +797,10 @@ else
     return "no_terminal_found"
 end if
 '''
+            # Debug: log the actual AppleScript being executed
+            logger.info(f"Generated AppleScript (length: {len(applescript)}):")
+            logger.info(f"AppleScript content:\n{applescript}")
+
             result = subprocess.run(
                 ['osascript', '-e', applescript],
                 capture_output=True,
