@@ -71,8 +71,8 @@ fi
 
 echo -e "${GREEN}✓${NC} Repository ready at $INSTALL_DIR"
 
-# Set up Python virtual environments
-echo -e "${YELLOW}! Setting up Python virtual environments...${NC}"
+# Set up Python virtual environment
+echo -e "${YELLOW}! Setting up Python virtual environment...${NC}"
 
 # Main environment
 if [ ! -d "venv" ]; then
@@ -80,36 +80,20 @@ if [ ! -d "venv" ]; then
 fi
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt 2>/dev/null || echo "No main requirements.txt found"
+
+# Install dependencies
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
+else
+    echo -e "${YELLOW}Warning: No requirements.txt found${NC}"
+fi
+
+# Install rumps for menu bar (might not be in requirements.txt)
+pip install rumps 2>/dev/null || true
+
 deactivate
 
-# open_mouth environment
-if [ -d "open_mouth" ]; then
-    cd open_mouth
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
-    source venv/bin/activate
-    pip install --upgrade pip
-    pip install -r requirements.txt 2>/dev/null || echo "No open_mouth requirements.txt found"
-    deactivate
-    cd ..
-fi
-
-# open_ears environment
-if [ -d "open_ears" ]; then
-    cd open_ears
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
-    source venv/bin/activate
-    pip install --upgrade pip
-    pip install -r requirements.txt 2>/dev/null || echo "No open_ears requirements.txt found"
-    deactivate
-    cd ..
-fi
-
-echo -e "${GREEN}✓${NC} Virtual environments configured"
+echo -e "${GREEN}✓${NC} Virtual environment configured"
 
 # Create molt-speak CLI launcher
 echo -e "${YELLOW}! Creating molt-speak command...${NC}"
@@ -125,30 +109,55 @@ case "$1" in
     start)
         echo "Starting OpenSpeak Voice Loop..."
         cd "$INSTALL_DIR"
-        source venv/bin/activate
-        python -m open_mouth.src.unified_audio start &
-        echo "Voice loop started. Use 'molt-speak stop' to stop."
+
+        # Start using the project's startup script
+        if [ -f "start_voice_loop.sh" ]; then
+            ./start_voice_loop.sh
+        else
+            # Fallback: start manually
+            source venv/bin/activate
+            nohup python main.py > logs/integration.log 2>&1 &
+            nohup python src/unified_audio.py > logs/audio.log 2>&1 &
+            echo "Voice loop started. Use 'molt-speak stop' to stop."
+        fi
         ;;
 
     stop)
         echo "Stopping OpenSpeak Voice Loop..."
-        pkill -f "unified_audio"
-        pkill -f "open_ears"
-        pkill -f "open_mouth"
-        echo "Voice loop stopped."
+        cd "$INSTALL_DIR"
+
+        # Use the project's stop script if available
+        if [ -f "stop_voice_loop.sh" ]; then
+            ./stop_voice_loop.sh
+        else
+            # Fallback: kill processes
+            pkill -f "unified_audio"
+            pkill -f "main.py"
+            echo "Voice loop stopped."
+        fi
         ;;
 
     menu)
         echo "Opening Voice Menu..."
         cd "$INSTALL_DIR"
-        source venv/bin/activate
-        python -m open_mouth.src.gui.unified_menu_bar
+
+        # Use the project's menu script if available
+        if [ -f "start_menu_bar.sh" ]; then
+            ./start_menu_bar.sh
+        else
+            # Fallback: run directly
+            source venv/bin/activate
+            python3 unified_menu_bar.py
+        fi
         ;;
 
     status)
         echo "Checking OpenSpeak status..."
         if pgrep -f "unified_audio" > /dev/null; then
             echo "✓ Voice loop is running"
+            if pgrep -f "main.py" > /dev/null; then
+                echo "✓ Integration coordinator is running"
+            fi
         else
             echo "✗ Voice loop is not running"
         fi
@@ -162,15 +171,16 @@ case "$1" in
         fi
 
         case "$2" in
-            ears)
-                tail -f "$LOG_DIR/ears.log"
+            audio)
+                tail -f "$LOG_DIR/audio.log"
                 ;;
-            mouth)
-                tail -f "$LOG_DIR/mouth.log"
+            integration)
+                tail -f "$LOG_DIR/integration.log"
                 ;;
             *)
-                echo "Available logs: ears, mouth"
-                echo "Usage: molt-speak logs [ears|mouth]"
+                echo "Available logs: audio, integration"
+                echo "Usage: molt-speak logs [audio|integration]"
+                ls -1 "$LOG_DIR"/*.log 2>/dev/null | xargs -n1 basename
                 ;;
         esac
         ;;
@@ -181,8 +191,6 @@ case "$1" in
         git pull
         source venv/bin/activate
         pip install --upgrade -r requirements.txt 2>/dev/null || true
-        cd open_mouth && source venv/bin/activate && pip install --upgrade -r requirements.txt 2>/dev/null || true && deactivate && cd ..
-        cd open_ears && source venv/bin/activate && pip install --upgrade -r requirements.txt 2>/dev/null || true && deactivate && cd ..
         echo "✓ OpenSpeak updated"
         ;;
 
@@ -196,7 +204,7 @@ case "$1" in
         echo "  stop     - Stop the voice loop"
         echo "  menu     - Open voice selection menu"
         echo "  status   - Check if voice loop is running"
-        echo "  logs     - View logs (ears|mouth)"
+        echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"
         echo ""
         ;;
