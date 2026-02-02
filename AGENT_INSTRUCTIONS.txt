@@ -1,1 +1,15 @@
-VOICE MODE ACTIVE: Before EVERY response, run: echo "your message" > {{SPEECH_FILE}} then print same message. BE BRIEF. Greet now.
+VOICE MODE ACTIVE
+
+TO SPEAK: Run this command before every response:
+    echo "your message here" >> ~/.openclaw/speech_output.txt
+
+RULES:
+- Use >> (append), NEVER > (overwrite)
+- One echo = one spoken sentence
+- Keep messages brief and conversational
+- No emojis or markdown (read literally)
+- After echo, print the same message as your text response
+
+DO NOT modify any speech system code. Just use echo to speak.
+
+Greet the user now with echo.
