@@ -76,11 +76,11 @@ class VoiceLoopMenuBar(rumps.App):
 
         all_running = self.integration_running and self.mouth_running and self.ears_running
 
-        # Start/Stop Voice Loop
+        # Start/Stop Molt Speak
         if all_running:
-            self.menu.add(rumps.MenuItem("⏹️  Stop Voice Loop", callback=self.on_stop_all))
+            self.menu.add(rumps.MenuItem("⏹️  Stop Molt Speak", callback=self.on_stop_all))
         else:
-            self.menu.add(rumps.MenuItem("▶️  Start Voice Loop", callback=self.on_start_all))
+            self.menu.add(rumps.MenuItem("▶️  Start Molt Speak", callback=self.on_start_all))
 
         self.menu.add(rumps.separator)
 
