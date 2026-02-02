@@ -17,48 +17,49 @@ curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/instal
 After installation:
 ```bash
 molt-speak start   # Open menu bar (select voice & start)
-molt-speak status  # Check status
 molt-speak stop    # Stop the voice loop
+molt-speak status  # Check status
+molt-speak update  # Update to latest version
 ```
 
 ## Overview
 
-This integration service monitors OpenClaw Mouth's speaking status and signals OpenClaw Ears to pause its microphone when the agent is speaking, preventing audio feedback loops.
+Molt-Speak monitors the Mouth's speaking status and signals Ears to pause its microphone when the agent is speaking, preventing audio feedback loops.
 
 ### How It Works
 
 ```
-1. OpenClaw Mouth speaks → Updates mouth_status.txt to "SPEAKING"
-2. Integration monitors file → Detects "SPEAKING" status
+1. Mouth speaks → Updates mouth_status.txt to "SPEAKING"
+2. Molt-Speak monitors file → Detects "SPEAKING" status
 3. Creates pause signal file → ~/.molt-speak/runtime/ears_pause.signal
-4. OpenClaw Ears checks signal → Pauses microphone
+4. Ears checks signal → Pauses microphone
 5. No echo! 🎉
 6. Mouth finishes → Status changes to "IDLE"
-7. Integration removes signal → Ears resumes listening
+7. Molt-Speak removes signal → Ears resumes listening
 ```
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│            Voice Loop Coordinator                    │
+│            Molt-Speak Voice Loop Coordinator        │
 ├─────────────────────────────────────────────────────┤
 │                                                      │
 │  Monitor Thread                                      │
 │    ↓                                                 │
-│  Polls ~/.molt-speak/runtime/mouth_status.txt (100ms)         │
+│  Polls ~/.molt-speak/runtime/mouth_status.txt (100ms)│
 │    ↓                                                 │
 │  Detects SPEAKING status                            │
 │    ↓                                                 │
-│  Creates ~/.molt-speak/runtime/ears_pause.signal              │
+│  Creates ~/.molt-speak/runtime/ears_pause.signal    │
 │    ↓                                                 │
-│  OpenClaw Ears checks signal → Pauses mic           │
+│  Ears checks signal → Pauses mic                    │
 │    ↓                                                 │
 │  Mouth finishes (IDLE status)                       │
 │    ↓                                                 │
 │  Removes pause signal (after 200ms debounce)        │
 │    ↓                                                 │
-│  OpenClaw Ears resumes listening                    │
+│  Ears resumes listening                             │
 │                                                      │
 └─────────────────────────────────────────────────────┘
 ```
@@ -68,8 +69,8 @@ This integration service monitors OpenClaw Mouth's speaking status and signals O
 ### Prerequisites
 
 - Python 3.9+
-- OpenClaw Ears installed and configured
-- OpenClaw Mouth installed and configured
+- Molt-Speak Ears installed and configured
+- Molt-Speak Mouth installed and configured
 
 ### Installation
 
@@ -88,13 +89,13 @@ pip install -r requirements.txt
 ./start_integration.sh
 ```
 
-**Terminal 2** - Start OpenClaw Mouth:
+**Terminal 2** - Start Mouth:
 ```bash
 cd open_mouth
 ./start_speech_system.sh
 ```
 
-**Terminal 3** - Start OpenClaw Ears (with pause signal support):
+**Terminal 3** - Start Ears (with pause signal support):
 ```bash
 cd open_ears
 ./start_voice_system.sh
@@ -146,12 +147,12 @@ LOG_FILE=                          # Optional log file path
 └── README.md                     # This file
 ```
 
-## How OpenClaw Ears Should Integrate
+## How Ears Should Integrate
 
-OpenClaw Ears needs to check for the pause signal file:
+Ears needs to check for the pause signal file:
 
 ```python
-# In open_ears capture loop:
+# In ears capture loop:
 pause_signal_file = Path.home() / ".molt-speak" / "runtime" / "ears_pause.signal"
 
 if pause_signal_file.exists():
@@ -165,8 +166,8 @@ if pause_signal_file.exists():
 
 | File | Purpose | Created By | Read By |
 |------|---------|------------|---------|
-| `~/.molt-speak/runtime/mouth_status.txt` | Mouth speaking status | OpenClaw Mouth | This integration |
-| `~/.molt-speak/runtime/ears_pause.signal` | Pause microphone signal | This integration | OpenClaw Ears |
+| `~/.molt-speak/runtime/mouth_status.txt` | Mouth speaking status | Mouth | Molt-Speak |
+| `~/.molt-speak/runtime/ears_pause.signal` | Pause microphone signal | Molt-Speak | Ears |
 
 ## Status File Format
 
@@ -228,7 +229,7 @@ cat ~/.molt-speak/runtime/mouth_status.txt
 
 ### Ears not pausing
 
-Make sure OpenClaw Ears is modified to check the pause signal file. The integration creates the signal, but Ears must read and respect it.
+Make sure Ears is modified to check the pause signal file. The integration creates the signal, but Ears must read and respect it.
 
 ### High CPU usage
 
@@ -259,5 +260,5 @@ MIT License - See LICENSE file
 
 ## Author
 
-OpenClaw Project
+Molt-Speak Project
 Version 1.0.0
