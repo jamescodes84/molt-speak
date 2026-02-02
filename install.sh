@@ -62,10 +62,12 @@ fi
 if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}! OpenSpeak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
-    git pull
+    git fetch origin
+    git checkout poc
+    git pull origin poc
 else
     echo -e "${YELLOW}! Cloning OpenSpeak repository...${NC}"
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone -b poc "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
