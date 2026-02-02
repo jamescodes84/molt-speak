@@ -1,0 +1,59 @@
+
+)src.gui.control_client.ControlClient.pingH
+>/Users/albus/open_speak-1/open_mouth/src/gui/control_client.pyE E("2*È
+2F K(çä
+L L(,
+%1*D
+
+__unknown_file ((&
+$src.gui.control_client.ControlClient*$
+
+__unknown_file (
+PING2send_commandB
+@
+L L(,
+
+response"__id*"
+
+__unknown_file (
+
+%1*
+4
+5*Ë
+4M M($ï
+í
+M M($
+%3"	__compare*"
+
+__unknown_file (
+==*(
+
+__unknown_file (
+
+
+response*'
+
+__unknown_file (	
+OK:PONG<
+:
+M M($
+%2"__id*"
+
+__unknown_file (
+
+%3*
+6*S
+5M6 M(;?
+=
+M6 M(;
+%2"__id*%
+
+__unknown_file (	
+
+False*
+6*!
+6M6 M(;"
+M M(;
+
+%2B(&
+$src.gui.control_client.ControlClientH

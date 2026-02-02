@@ -1,0 +1,32 @@
+
+100int
+"+"str
+Ç½"
+        Format volume for Edge-TTS.
+
+        Args:
+            volume: Volume multiplier (0.0 to 1.0)
+
+        Returns:
+            Formatted volume string (e.g., '+0%', '-50%')
+        "str
+"{sign}{percent}%"str
+1.0float
+
+	0int
+""strself9 9(volume9 9(*"ù1
+/
+C C(#"#dependent-value#*:Bfloat1
+/
+C C(*"#dependent-value#*:Bfloat7
+5
+C C(+percent"#dependent-value#*:Bint0
+.
+D D("
+sign"
+#binop >=#2>=:	Bbool&"$
+D D("
+ *D D(2D# D('"
+D D(*"
+D D(*"**sign
+E E("*@/Users/albus/open_speak-1/open_mouth/src/services/tts_service.py

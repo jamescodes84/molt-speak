@@ -1,0 +1,29 @@
+
+	"\033[0m"str
+$
+"{color_code}{text}{reset}"str
+êà"
+        Apply ANSI color to text.
+
+        Args:
+            text: Text to colorize
+            color_code: ANSI color code
+
+        Returns:
+            Colorized text if colors are enabled, otherwise plain text
+        "strself. .(text. .(!
+color_code.# .(2"¤.
+,
+9 9(!"#get-field# enable_colors:)
+'
+9 9(!"
+__bool__*:BboolH)
+'
+9 9(!"#unaryop !#2!:Bbool"
+9 9(! *9 9(
+"
+: :("9%
+#
+< <(	reset"#id#:Bstr
+= =(+
+*D/Users/albus/open_speak-1/open_mouth/src/core/terminal_visualizer.py

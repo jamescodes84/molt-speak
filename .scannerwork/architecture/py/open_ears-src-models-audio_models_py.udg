@@ -1,0 +1,89 @@
+
+1.0PythonFrontend"1770057729794*py2.B∏
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+)
+$open_ears/src/models/audio_models.py9
+
+src.models.audio_models11
+
+typing12
+
+pydantic.ConfigDict14
+
+pydantic16
+1
++src.models.audio_models.TranscriptionResult18
+
+pydantic.main.BaseModel20
+)
+#src.models.audio_models.TTSResponse22
+(
+"src.models.audio_models.TTSRequest24
+*
+$src.models.audio_models.AudioSegment26J
+
+8
+89 j“
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19186 210
+
+21
+21206
+
+23
+23226 210
+
+25
+25246 210
+
+27
+27266 210r∂
+
+10131*
+8 (-
+
+10151*
+8! (+
+
+10171*
+8 (2
+
+19212*
+8 (
+
+23212*
+8% %(
+
+25212*
+8 (
+
+27212*
+8/ /(

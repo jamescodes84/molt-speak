@@ -1,0 +1,16 @@
+
+¼²"
+        Speak text (synchronous wrapper)
+
+        :param text: Text to speak
+        :param output_file: Optional output file path
+        :return: Path to audio file
+        "strselfi i(texti i(output_filei i(*"‚!
+
+q q(>"#unknown-value#!
+
+q q(?"#unknown-value#*
+(
+q q(?"
+asyncio.runnersrun:
+q q(?*?/Users/albus/open_speak-1/open_ears/src/services/tts_service.py

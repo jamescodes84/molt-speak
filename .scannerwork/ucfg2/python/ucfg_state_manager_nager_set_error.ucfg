@@ -1,0 +1,84 @@
+
+-src.core.state_manager.StateManager.set_errorJ
+>/Users/albus/open_speak-1/open_mouth/src/core/state_manager.pyÜ Ü("2*É
+2
+á å(j
+h
+
+ç ç(
+%5"__id*N
+
+__unknown_file (2*0%
+#src.core.state_manager.StateManager"
+_lock*
+3
+4*8
+3
+state_manager.py"
+í í(
+implicit return*Ê
+4
+é é((k
+i
+
+é é(
+%1"__id*O
+
+__unknown_file (3*1%
+#src.core.state_manager.StateManager"
+_stateM
+K
+
+é é((
+
+%1"
+status"__id*%
+
+__unknown_file (	
+ERRORk
+i
+
+è è(
+%2"__id*O
+
+__unknown_file (3*1%
+#src.core.state_manager.StateManager"
+_state\
+Z
+
+è è(5
+
+%2"
+error_message"__id*-
+
+__unknown_file (
+
+error_message`
+^
+
+ê ê(8
+%3"__concat*
+
+ê ê((
+State error: *
+
+ê) ê(6
+
+error_messagege
+
+ê ê(9
+%4*&
+
+__unknown_file (
+
+
+logger*"
+
+__unknown_file (
+
+%32error*
+3:
+
+Ü Ü(*
+error_messageB'%
+#src.core.state_manager.StateManagerH

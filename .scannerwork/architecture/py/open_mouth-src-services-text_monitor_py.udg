@@ -1,0 +1,303 @@
+
+1.0PythonFrontend"1770057730197*py2.B—
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+,
+'open_mouth/src/services/text_monitor.py9
+
+src.services.text_monitor11
+
+logging12
+
+
+time14
+
+pathlib16
+
+queue18
+
+	threading20
+!
+watchdog.observers.Observer22
+
+watchdog.observers24
+,
+&watchdog.events.FileSystemEventHandler26
+'
+!watchdog.events.FileModifiedEvent28
+&
+ watchdog.events.DirModifiedEvent30
+
+watchdog.events32
+
+typing34
++
+%src.services.text_monitor.TextMonitor36
+A
+;src.services.text_monitor.TextMonitor.read_existing_content38
+
+
+list40
+4
+.src.services.text_monitor.TextMonitor.__init__42
+
+pathlib.Path44
+
+queue.Queue46
+
+float48
+:
+4src.services.text_monitor.TextMonitor._get_file_size50
+	
+int52
+0
+*src.services.text_monitor.TextMonitor.stop54
+
+NoneType56
+1
++src.services.text_monitor.TextMonitor.start58
+2
+,src.services.text_monitor.PollingTextMonitor60
+=
+7src.services.text_monitor.PollingTextMonitor._poll_loop62
+8
+2src.services.text_monitor.PollingTextMonitor.start64
+7
+1src.services.text_monitor.PollingTextMonitor.stop66
+;
+5src.services.text_monitor.PollingTextMonitor.__init__68
+A
+;src.services.text_monitor.PollingTextMonitor._get_file_size70
+I
+Csrc.services.text_monitor.PollingTextMonitor._check_for_new_content72
+/
+)src.services.text_monitor.TextFileHandler74
+;
+5src.services.text_monitor.TextFileHandler.on_modified76
+@
+:src.services.text_monitor.TextFileHandler.read_new_content78
+8
+2src.services.text_monitor.TextFileHandler.__init__80J
+
+8
+89 j¡
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19185
+
+21
+21205
+
+23
+23225
+
+25
+25245
+
+27
+27265
+
+29
+29285
+
+31
+31305
+
+33
+33325
+
+35
+35345
+
+37
+37366 210
+
+39
+39387 237
+
+41
+41406
+
+43
+43427 237
+
+45
+45446
+
+47
+47466
+
+49
+49486
+
+51
+51507 237
+
+53
+53526
+
+55
+55547 237
+
+57
+57566
+
+59
+59587 237
+
+61
+61606 210
+
+63
+63627 261
+
+65
+65647 261
+
+67
+67667 261
+
+69
+69687 261
+
+71
+71707 261
+
+73
+73727 261
+
+75
+75746 210
+
+77
+77767 275
+
+79
+79787 275
+
+81
+81807 275rÖ
+
+10131*
+8 (
+
+10151*
+8 (
+
+10171*
+8 (
+
+10191*
+8 (
+
+10211*
+8 ($
+
+10231*
+8  ((
+
+10251*
+8 ((
+
+10271*
+8	 	(3
+
+10291*
+8	5 	(F
+
+10311*
+8	H 	(X
+
+10331*
+8	 	(X
+
+10351*
+8
+ 
+(
+
+39413*
+8¬	 ¬(
+
+43454*
+8O	 O(
+
+43474*
+8O	 O(
+
+43494*
+8O	 O(
+
+51533*
+8u	 u(
+
+55573*
+8ž	 ž(
+
+59573*
+8„	 „(
+
+63573*
+8ó	 ó(
+
+65573*
+8˜	 ˜(
+
+67573*
+8Ÿ	 Ÿ(
+
+69454*
+8Ê	 Ê(
+
+69474*
+8Ê	 Ê(
+
+69494*
+8Ê	 Ê(
+
+71533*
+8ê	 ê(
+
+73573*
+8ü	 ü(
+
+77573*
+8 	  (
+
+79573*
+8/	 /(
+
+81454*
+8	 (
+
+81474*
+8	 (
+
+81534*
+8	 (

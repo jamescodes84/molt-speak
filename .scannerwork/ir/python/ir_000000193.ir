@@ -1,0 +1,41 @@
+
+"+"str
+³©"
+        Format rate for Edge-TTS.
+
+        Args:
+            rate: Rate multiplier
+
+        Returns:
+            Formatted rate string (e.g., '+50%', '-25%')
+        "str
+1.0float
+"{sign}{percent}%"str
+"+0%"str
+
+0int
+""str
+	100intself( ((rate( ((&"t)
+'
+2 2("?python-unknown?*:)
+'
+2 2("
+__bool__*:BboolH"
+2 2( *2 2(
+"
+3 3("û1
+/
+5 5(!"#dependent-value#*:Bfloat1
+/
+5 5((
+"#dependent-value#*:	Bfloat7
+5
+5 5()percent"#dependent-value#*:
+Bint0
+.
+6 6("sign"
+#binop >=#2>=:Bbool&"$
+6 6(" *6 6(26# 6('"
+6 6(*"
+6 6(*"**sign
+7 7("*@/Users/albus/open_speak-1/open_mouth/src/services/tts_service.py

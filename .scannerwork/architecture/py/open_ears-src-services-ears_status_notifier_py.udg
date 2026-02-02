@@ -1,0 +1,145 @@
+
+1.0PythonFrontend"1770057730129*py2.B´
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+3
+.open_ears/src/services/ears_status_notifier.py9
+'
+!src.services.ears_status_notifier11
+
+logging12
+
+
+time14
+
+pathlib16
+
+typing18
+
+src.config.settings20
+:
+4src.services.ears_status_notifier.EarsStatusNotifier22
+H
+Bsrc.services.ears_status_notifier.EarsStatusNotifier._write_status24
+
+NoneType26
+	
+str28
+
+float30
+B
+<src.services.ears_status_notifier.EarsStatusNotifier.cleanup32
+K
+Esrc.services.ears_status_notifier.EarsStatusNotifier.notify_listening34
+Q
+Ksrc.services.ears_status_notifier.EarsStatusNotifier.notify_speech_detected36
+C
+=src.services.ears_status_notifier.EarsStatusNotifier.__init__38
+H
+Bsrc.services.ears_status_notifier.EarsStatusNotifier.notify_paused40J
+
+8
+89 jé
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19185
+
+21
+21205
+
+23
+23226 210
+
+25
+25247 223
+
+27
+27266
+
+29
+29286
+
+31
+31306
+
+33
+33327 223
+
+35
+35347 223
+
+37
+37367 223
+
+39
+39387 223
+
+41
+41407 223rÒ
+
+10131*
+8	 	(
+
+10151*
+8
+ 
+(
+
+10171*
+8 (
+
+10191*
+8 (
+
+10211*
+8 (
+
+25273*
+8B	 B(
+
+25294*
+8B	 B(
+
+25314*
+8B	 B(
+
+33273*
+8P	 P(
+
+35273*
+82	 2(
+
+37273*
+86	 6(
+
+37314*
+86	 6(
+
+41273*
+8>	 >(

@@ -1,0 +1,106 @@
+
+5unified_menu_bar.VoiceLoopMenuBar.on_start_mouth_only9
+-/Users/albus/open_speak-1/unified_menu_bar.py… …("2*ˆ
+2
+† †(Ao
+m
+
+ˆ ˆ(
+%7"__id*S
+
+__unknown_file (7*5#
+!unified_menu_bar.VoiceLoopMenuBar"
+ears_running*
+6
+7*;
+3
+unified_menu_bar.py"
+• •(
+implicit return*¥
+4
+‘ ’(?‚ÿ
+
+‘ ’(?
+%1*A
+
+__unknown_file (%#
+!unified_menu_bar.VoiceLoopMenuBar*%
+
+__unknown_file (	
+mouth*.
+
+__unknown_file (
+OpenClaw Mouth*?
+
+__unknown_file (#!
+cd open_mouth && python main.py2_start_component‰†
+
+“ “(;
+%2*&
+
+__unknown_file (
+
+
+logger*D
+
+__unknown_file ((&
+$Started Mouth-only mode (TTS output)2info*
+3*—
+5
+ Ž(2€ý
+
+ Ž(2
+%3*A
+
+__unknown_file (%#
+!unified_menu_bar.VoiceLoopMenuBar*+
+
+__unknown_file (
+integration*7
+
+__unknown_file (
+Integration Coordinator*.
+
+__unknown_file (
+python main.py2_start_component*
+4*
+6
+Œ Œ('v
+t
+
+Œ Œ('
+%4"__id*Z
+
+__unknown_file (>*<#
+!unified_menu_bar.VoiceLoopMenuBar"
+integration_running*
+4
+5*Å
+7
+‰ ‰(Ep
+n
+
+‰! ‰(3
+%5"__id*T
+
+__unknown_file (8*6#
+!unified_menu_bar.VoiceLoopMenuBar"
+ears_pid_file¼¹
+
+‰ ‰(E
+%6*A
+
+__unknown_file (%#
+!unified_menu_bar.VoiceLoopMenuBar*"
+
+__unknown_file (
+
+%5*-
+
+__unknown_file (
+OpenClaw Ears2_stop_component*
+6:
+
+…" …((
+senderB%#
+!unified_menu_bar.VoiceLoopMenuBarH

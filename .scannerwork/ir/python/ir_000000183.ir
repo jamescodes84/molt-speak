@@ -1,0 +1,11 @@
+
+"last_volume"str
+ "Get last used volume."strself ("c)
+'
+
+Å Å("#get-field# config:$
+"
+
+Å Å()"#array-read#:
+
+Å Å()*?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py

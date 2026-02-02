@@ -1,0 +1,57 @@
+
+.src.core.state_manager.StateManager.set_queuedH
+>/Users/albus/open_speak-1/open_mouth/src/core/state_manager.pyU U("2*
+2V [(h
+f
+\ \(
+%3"__id*N
+
+__unknown_file (2*0%
+#src.core.state_manager.StateManager"
+_lock*
+3
+4*6
+3
+state_manager.py"
+` `(
+implicit return*Œ
+4] ]()i
+g
+] ](
+%1"__id*O
+
+__unknown_file (3*1%
+#src.core.state_manager.StateManager"
+_stateL
+J
+] ]()
+
+%1"
+status"__id*&
+
+__unknown_file (
+
+QUEUEDi
+g
+^ ^(
+%2"__id*O
+
+__unknown_file (3*1%
+#src.core.state_manager.StateManager"
+_stateT
+R
+^ ^(/
+
+%2"
+
+queue_size"__id**
+
+__unknown_file (
+
+
+queue_size*
+3:
+U U((
+
+queue_sizeB'%
+#src.core.state_manager.StateManagerH

@@ -1,0 +1,34 @@
+
+"recent_voices"str
+È¾"
+        Get list of recently used voices.
+
+        Args:
+            limit: Maximum number to return, None for all
+
+        Returns:
+            List of recent voice dictionaries
+        "strself
+ë ë(limit
+ë  ë(;"¨)
+'
+
+õ õ("#get-field# config:,
+*
+
+õ õ(-recent"#array-read#:+
+)
+
+ö ö("
+__bool__*:BboolH "
+
+ö ö( *
+ö ö(
+"9#
+!
+
+÷ ÷(!"#unknown-value#
+
+÷ ÷(!"
+
+ø ø(*?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py

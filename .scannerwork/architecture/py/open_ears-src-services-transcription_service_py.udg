@@ -1,0 +1,128 @@
+
+1.0PythonFrontend"1770057730098*py2.BÌ
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+4
+/open_ears/src/services/transcription_service.py9
+(
+"src.services.transcription_service11
+
+logging12
+
+os14
+
+tempfile16
+
+typing18
+
+torch20
+
+
+time22
+D
+>src.services.transcription_service.WhisperTranscriberOptimized24
+[
+Usrc.services.transcription_service.WhisperTranscriberOptimized._transcribe_from_array26
+M
+Gsrc.services.transcription_service.WhisperTranscriberOptimized.__init__28
+T
+Nsrc.services.transcription_service.WhisperTranscriberOptimized.detect_language30
+O
+Isrc.services.transcription_service.WhisperTranscriberOptimized.transcribe32
+Z
+Tsrc.services.transcription_service.WhisperTranscriberOptimized._transcribe_from_file34
+W
+Qsrc.services.transcription_service.WhisperTranscriberOptimized._run_transcription36
+;
+5src.services.transcription_service.WhisperTranscriber38
+-
+'src.services.transcription_service.main40J
+
+8
+89 jõ
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19185
+
+21
+21205
+
+23
+23225
+
+25
+25246 210
+
+27
+27267 225
+
+29
+29287 225
+
+31
+31307 225
+
+33
+33327 225
+
+35
+35347 225
+
+37
+37367 225
+
+39
+39386 210
+
+41
+41407 210rº
+
+10131*
+8 (
+
+10151*
+8	 	(
+
+
+10171*
+8
+ 
+(
+
+10191*
+8 (4
+
+10211*
+8 (
+
+10231*
+8Ï Ï(
+
+39252*
+8È È(

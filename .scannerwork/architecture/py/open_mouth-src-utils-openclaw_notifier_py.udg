@@ -1,0 +1,156 @@
+
+1.0PythonFrontend"1770057729987*py2.B¨
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+.
+)open_mouth/src/utils/openclaw_notifier.py9
+!
+src.utils.openclaw_notifier11
+
+logging12
+
+pathlib14
+
+datetime16
+
+typing18
+
+src.config.settings20
+2
+,src.utils.openclaw_notifier.OpenClawNotifier22
+;
+5src.utils.openclaw_notifier.OpenClawNotifier.__init__24
+>
+8src.utils.openclaw_notifier.OpenClawNotifier.notify_idle26
+
+NoneType28
+@
+:src.utils.openclaw_notifier.OpenClawNotifier.notify_queued30
+	
+int32
+:
+4src.utils.openclaw_notifier.OpenClawNotifier.cleanup34
+@
+:src.utils.openclaw_notifier.OpenClawNotifier.update_status36
+	
+str38
+?
+9src.utils.openclaw_notifier.OpenClawNotifier.notify_error40
+B
+<src.utils.openclaw_notifier.OpenClawNotifier.notify_speaking42J
+
+8
+89 j‚
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19185
+
+21
+21205
+
+23
+23226 210
+
+25
+25247 223
+
+27
+27267 223
+
+29
+29286
+
+31
+31307 223
+
+33
+33326
+
+35
+35347 223
+
+37
+37367 223
+
+39
+39386
+
+41
+41407 223
+
+43
+43427 223r 
+
+10131*
+8 (
+
+10151*
+8 (
+
+10171*
+8 (
+
+10191*
+8 (
+
+10211*
+8 (
+
+27293*
+8<	 <(
+
+31293*
+8@	 @(
+
+31334*
+8@	 @(
+
+35293*
+8R	 R(
+
+37293*
+8 	  (
+
+37394*
+8 	  (
+
+37394*
+8 	  (
+
+41293*
+8I	 I(
+
+41394*
+8I	 I(
+
+43293*
+82	 2(
+
+43394*
+82	 2(

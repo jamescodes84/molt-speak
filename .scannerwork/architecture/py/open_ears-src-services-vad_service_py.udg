@@ -1,0 +1,62 @@
+
+1.0PythonFrontend"1770057730259*py2.Bà
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+*
+%open_ears/src/services/vad_service.py9
+
+src.services.vad_service11
+
+
+wave12
+4
+.src.services.vad_service.VoiceActivityDetector14
+=
+7src.services.vad_service.VoiceActivityDetector.__init__16
+>
+8src.services.vad_service.VoiceActivityDetector.is_speech18
+J
+Dsrc.services.vad_service.VoiceActivityDetector.detect_voice_segments20
+#
+src.services.vad_service.main22J
+
+8
+89 j²
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15146 210
+
+17
+17167 215
+
+19
+19187 215
+
+21
+21207 215
+
+23
+23227 210r
+
+10131*
+8T T(

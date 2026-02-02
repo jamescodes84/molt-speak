@@ -1,0 +1,16 @@
+
+"{status}:{message}\n"str
+£™"
+        Format response string.
+
+        Args:
+            status: Response status ("OK" or "ERROR")
+            message: Response message
+
+        Returns:
+            Formatted response string
+
+        Example:
+            format_response("OK", "PONG") -> "OK:PONG\n"
+        "strstatus/ /(#message/% /(1"
+= =(&*D/Users/albus/open_speak-1/open_mouth/src/control/command_protocol.py

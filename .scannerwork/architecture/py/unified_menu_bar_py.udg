@@ -1,0 +1,396 @@
+
+1.0PythonFrontend"1770057730062*py2.B¼
+
+imports1
+
+extends2
+
+returns3
+
+	has param4
+
+module5
+
+
+class6
+
+function7
+
+unified_menu_bar.py9
+
+unified_menu_bar11
+
+logging12
+
+
+subprocess14
+
+os16
+
+signal18
+
+
+time20
+
+atexit22
+
+pathlib24
+
+typing26
+
+	threading28
+$
+unified_menu_bar.force_cleanup30
+
+unified_menu_bar.main32
+%
+unified_menu_bar.signal_handler34
+'
+!unified_menu_bar.VoiceLoopMenuBar36
+=
+7unified_menu_bar.VoiceLoopMenuBar.auto_start_voice_loop38
+A
+;unified_menu_bar.VoiceLoopMenuBar.inject_agent_instructions40
+@
+:unified_menu_bar.VoiceLoopMenuBar.on_open_mouth_visualizer42
+@
+:unified_menu_bar.VoiceLoopMenuBar.on_window_targeting_help44
+<
+6unified_menu_bar.VoiceLoopMenuBar.on_configure_pattern46
+>
+8unified_menu_bar.VoiceLoopMenuBar.on_inject_instructions48
+5
+/unified_menu_bar.VoiceLoopMenuBar.on_test_voice50
+6
+0unified_menu_bar.VoiceLoopMenuBar.on_quick_start52
+;
+5unified_menu_bar.VoiceLoopMenuBar.on_show_setup_steps54
+7
+1unified_menu_bar.VoiceLoopMenuBar.on_open_project56
+3
+-unified_menu_bar.VoiceLoopMenuBar.on_stop_all58
+7
+1unified_menu_bar.VoiceLoopMenuBar._stop_component60
+
+pathlib.Path62
+	
+str64
+7
+1unified_menu_bar.VoiceLoopMenuBar.on_change_voice66
+:
+4unified_menu_bar.VoiceLoopMenuBar.on_start_ears_only68
+@
+:unified_menu_bar.VoiceLoopMenuBar.on_open_both_visualizers70
+2
+,unified_menu_bar.VoiceLoopMenuBar.build_menu72
+8
+2unified_menu_bar.VoiceLoopMenuBar.on_view_all_logs74
+<
+6unified_menu_bar.VoiceLoopMenuBar.on_start_integration76
+5
+/unified_menu_bar.VoiceLoopMenuBar.on_start_ears78
+4
+.unified_menu_bar.VoiceLoopMenuBar.on_stop_ears80
+?
+9unified_menu_bar.VoiceLoopMenuBar.on_view_integration_log82
+8
+2unified_menu_bar.VoiceLoopMenuBar.on_view_ears_log84
+@
+:unified_menu_bar.VoiceLoopMenuBar.on_window_targeting_docs86
+6
+0unified_menu_bar.VoiceLoopMenuBar.on_start_mouth88
+?
+9unified_menu_bar.VoiceLoopMenuBar.on_open_ears_visualizer90
+:
+4unified_menu_bar.VoiceLoopMenuBar.on_show_full_setup92
+6
+0unified_menu_bar.VoiceLoopMenuBar.on_list_voices94
+9
+3unified_menu_bar.VoiceLoopMenuBar.get_current_voice96
+:
+4unified_menu_bar.VoiceLoopMenuBar.on_troubleshooting98
+=
+6unified_menu_bar.VoiceLoopMenuBar.inject_close_message100
+<
+5unified_menu_bar.VoiceLoopMenuBar.on_start_mouth_only102
+9
+2unified_menu_bar.VoiceLoopMenuBar._start_component104
+6
+/unified_menu_bar.VoiceLoopMenuBar.update_status106
+6
+/unified_menu_bar.VoiceLoopMenuBar.check_process108
+
+bool110
+;
+4unified_menu_bar.VoiceLoopMenuBar.on_open_config_dir112
+=
+6unified_menu_bar.VoiceLoopMenuBar.on_view_instructions114
+2
++unified_menu_bar.VoiceLoopMenuBar._open_log116
+0
+)unified_menu_bar.VoiceLoopMenuBar.on_quit118
+5
+.unified_menu_bar.VoiceLoopMenuBar.on_start_all120
+8
+1unified_menu_bar.VoiceLoopMenuBar.on_toggle_voice122
+:
+3unified_menu_bar.VoiceLoopMenuBar.on_view_mouth_log124
+<
+5unified_menu_bar.VoiceLoopMenuBar.on_stop_integration126
+1
+*unified_menu_bar.VoiceLoopMenuBar.__init__128
+6
+/unified_menu_bar.VoiceLoopMenuBar.on_stop_mouth130
+>
+7unified_menu_bar.VoiceLoopMenuBar.on_copy_title_command132J
+
+8
+89 j‚
+ 
+10
+10115 *
+8 (
+
+13
+13125
+
+15
+15145
+
+17
+17165
+
+19
+19185
+
+21
+21205
+
+23
+23225
+
+25
+25245
+
+27
+27265
+
+29
+29285
+
+31
+31307 210
+
+33
+33327 210
+
+35
+35347 210
+
+37
+37366 210
+
+39
+39387 237
+
+41
+41407 237
+
+43
+43427 237
+
+45
+45447 237
+
+47
+47467 237
+
+49
+49487 237
+
+51
+51507 237
+
+53
+53527 237
+
+55
+55547 237
+
+57
+57567 237
+
+59
+59587 237
+
+61
+61607 237
+
+63
+63626
+
+65
+65646
+
+67
+67667 237
+
+69
+69687 237
+
+71
+71707 237
+
+73
+73727 237
+
+75
+75747 237
+
+77
+77767 237
+
+79
+79787 237
+
+81
+81807 237
+
+83
+83827 237
+
+85
+85847 237
+
+87
+87867 237
+
+89
+89887 237
+
+91
+91907 237
+
+93
+93927 237
+
+95
+95947 237
+
+97
+97967 237
+
+99
+99987 237
+
+101
+1011007 237
+
+103
+1031027 237
+
+105
+1051047 237
+
+107
+1071067 237
+
+109
+1091087 237
+
+111
+1111106
+
+113
+1131127 237
+
+115
+1151147 237
+
+117
+1171167 237
+
+119
+1191187 237
+
+121
+1211207 237
+
+123
+1231227 237
+
+125
+1251247 237
+
+127
+1271267 237
+
+129
+1291287 237
+
+131
+1311307 237
+
+133
+1331327 237r¢
+
+10131*
+8 (
+
+10151*
+8 (
+
+10171*
+8 (
+
+
+10191*
+8 (
+
+10211*
+8 (
+
+10231*
+8 (
+
+10251*
+8 (
+
+10271*
+8 (
+
+10291*
+8< <(
+
+10291*
+8¼ ¼(!
+
+10171*
+8ü ü(
+
+61634*
+8¼	 ¼(
+
+61654*
+8¼	 ¼(
+
+105654*
+8 	  (
+
+105654*
+8 	  (
+
+105654*
+8 	  (
+
+1091113*
+8o	 o(
+
+109634*
+8o	 o(
+
+117634*
+8	 (
+
+117654*
+8	 (

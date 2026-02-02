@@ -1,0 +1,111 @@
+
+%
+"\033[90m"str
+	0.5float
+
+"ðŸ—£ï¸ "str
+%5"{status} {bar} â”‚ {trans}"str
+#
+"\033[33m"str
+*"â–‘"str
+.%"Render a compact single-line status"str
+("â–ˆ"str
+"ðŸ”‡"str
+30int
+3"Listening..."str
+5000int
+"ðŸ“¢"str
+-	"\033[0m"str
+
+"\033[92m"strself% %(",
+*
+( (("#get-field# is_speaking:)
+'
+( (("
+__bool__*:BboolH&"$
+( (( *( ((
+2* *("0&
+$
+) )(status"#id#:Bstr"“2
+0
+* *(#"#get-field# current_amplitude:*
+(
+*& *(4"#get-field# threshold:1
+/
+*& *(:
+"#dependent-value#*:	Bfloat)
+'
+* *(:"?python-unknown?*:
+)
+'
+* *(:"
+__bool__*:BboolH&"$
+* *(: ** *(2, ,("0&
+$
++ +(status"#id#:Bstr"0&
+$
+- -(status"#id#:Bstr"á)
+'
+0 0(	bar_width"#id#:Bint2
+0
+1 1(,"#get-field# current_amplitude:1
+/
+1 1(3"#dependent-value#*:Bfloat1
+/
+1 1(@"#dependent-value#*:Bfloat6
+4
+1 1(Afilled"#dependent-value#*:Bint.
+,
+2 2('filled"
+builtinsmin*:2
+0
+4 4(!"#get-field# current_amplitude:*
+(
+4$ 4(2"#get-field# threshold:(
+&
+4 4(2"	#binop >#2>:Bbool&"$
+4 4(2 *4 4(
+26 6("/%
+#
+5 5(color"#id#:Bstr
+"“2
+0
+6 6(#"#get-field# current_amplitude:*
+(
+6& 6(4"#get-field# threshold:1
+/
+6& 6(: "#dependent-value#*:	Bfloat)
+'
+6 6(:!"?python-unknown?*: )
+'
+6 6(:""
+__bool__*:!BboolH&"$
+6 6(:" 	*6 6(28 8("/%
+#
+7 7($color"#id#:#Bstr
+"/	%
+#
+9 9(&color"#id#:%Bstr
+"Ñ
+*'color$	&%
+#
+; ;(")"	#binop *#*2*:(%
+#
+;9 ;(K+"	#binop -#*2-:%
+#
+;2 ;(L,"	#binop *#*2*:*+*
+(
+; ;(X.bar"	#binop +#2+:')%,-:
+8
+>0 >(G/trans" #get-field# last_transcription:)
+'
+>0 >(G0"
+__bool__*:/BboolH&"$
+>0 >(G0 *>- >(/2>H >(L"j3
+1
+> >('1" #get-field# last_transcription:!
+
+> >(,2"#unknown-value#
+> >(["
+> >(["+*4trans23
+@ @(*5*C/Users/albus/open_speak-1/open_ears/src/core/terminal_visualizer.py

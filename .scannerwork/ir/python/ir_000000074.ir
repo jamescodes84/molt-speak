@@ -1,0 +1,53 @@
+
+"queued_items"str
+
+"queue_size"str
+"total_spoken"str
+"error_message"str
+"status"str
+"voice"str
+"current_text"str
+
+"progress"str
+kb"
+        Convert state to dictionary.
+
+        Returns:
+            State as dictionary
+        "strself ("¬$
+"
+ ((	"#new-object#Bdict'
+%
+   (!"#get-field# status: 
+
+   (!"	#map-set#:-
++
+! !(-"#get-field# current_text: 
+
+! !(-	"	#map-set#:+
+)
+" "()"#get-field# queue_size: 
+
+" "()"	#map-set#:
+-
++
+# #(-"#get-field# total_spoken: 
+
+# #(-"	#map-set#:&
+$
+$ $("#get-field# voice: 
+
+$ $("	#map-set#:)
+'
+% %(%"#get-field# progress: 
+
+% %(%"	#map-set#:.
+,
+& &(/"#get-field# error_message: 
+
+& &(/"	#map-set#:-
++
+' '(-"#get-field# queued_items: 
+
+' '(-"	#map-set#:
+ ((	*>/Users/albus/open_speak-1/open_mouth/src/core/state_manager.py

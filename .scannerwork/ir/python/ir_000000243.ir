@@ -1,0 +1,35 @@
+
+"â–ˆ"str
+ "[{bar}] {percentage}%"str
+ÎÄ"
+        Render a progress bar.
+
+        Args:
+            progress: Progress (0.0 to 1.0)
+            width: Width of the progress bar
+
+        Returns:
+            Progress bar string
+        "str
+
+"â–‘"str
+100intselfc c(!progressc# c(2widthc4 c(C"÷%
+#
+n n(%"	#binop *#*2*:6
+4
+n n(&filled"#dependent-value#*:Bint,
+*
+o o(empty"	#binop -#*2-:%
+#
+p p(	"	#binop *#*2*:%
+#
+p p(("	#binop *#*2*:
+'
+%
+p p((bar"	#binop +#2+:	%
+#
+q q('"	#binop *#*2*::
+8
+q q((
+percentage"#dependent-value#*:Bint
+r r('*D/Users/albus/open_speak-1/open_mouth/src/core/terminal_visualizer.py
