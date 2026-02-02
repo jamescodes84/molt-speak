@@ -74,122 +74,18 @@ class VoiceLoopMenuBar(rumps.App):
         except Exception:
             return  # Menu not ready yet
 
-        # Header - System Status
         all_running = self.integration_running and self.mouth_running and self.ears_running
 
-        if all_running:
-            self.menu.add(rumps.MenuItem("✅ Voice Loop Active", callback=None))
-        else:
-            self.menu.add(rumps.MenuItem("⚪ Voice Loop Inactive", callback=None))
-
-        self.menu.add(rumps.separator)
-
-        # Individual system status
-        status_menu = rumps.MenuItem("System Status")
-
-        int_status = "✅" if self.integration_running else "⚪"
-        status_menu.add(rumps.MenuItem(f"{int_status} Integration Coordinator", callback=None))
-        desc = rumps.MenuItem("   Prevents echo/feedback")
-        desc.set_callback(None)
-        status_menu.add(desc)
-
-        mouth_status = "✅" if self.mouth_running else "⚪"
-        status_menu.add(rumps.MenuItem(f"{mouth_status} OpenClaw Mouth", callback=None))
-        desc = rumps.MenuItem("   Text-to-speech output")
-        desc.set_callback(None)
-        status_menu.add(desc)
-
-        ears_status = "✅" if self.ears_running else "⚪"
-        status_menu.add(rumps.MenuItem(f"{ears_status} OpenClaw Ears", callback=None))
-        desc = rumps.MenuItem("   Voice input & transcription")
-        desc.set_callback(None)
-        status_menu.add(desc)
-
-        self.menu.add(status_menu)
-
-        self.menu.add(rumps.separator)
-
-        # Control menu
+        # Start/Stop Voice Loop
         if all_running:
             self.menu.add(rumps.MenuItem("⏹️  Stop Voice Loop", callback=self.on_stop_all))
-            help_item = rumps.MenuItem("   Stop all voice systems")
-            help_item.set_callback(None)
-            self.menu.add(help_item)
         else:
             self.menu.add(rumps.MenuItem("▶️  Start Voice Loop", callback=self.on_start_all))
-            help_item = rumps.MenuItem("   Start voice input & output")
-            help_item.set_callback(None)
-            self.menu.add(help_item)
-
-        self.menu.add(rumps.separator)
-
-        # Individual controls submenu
-        controls = rumps.MenuItem("Individual Controls")
-
-        if self.integration_running:
-            controls.add(rumps.MenuItem("Stop Integration", callback=self.on_stop_integration))
-        else:
-            controls.add(rumps.MenuItem("Start Integration", callback=self.on_start_integration))
-        desc = rumps.MenuItem("   Echo prevention coordinator")
-        desc.set_callback(None)
-        controls.add(desc)
-
-        if self.mouth_running:
-            controls.add(rumps.MenuItem("Stop Mouth", callback=self.on_stop_mouth))
-        else:
-            controls.add(rumps.MenuItem("Start Mouth", callback=self.on_start_mouth))
-        desc = rumps.MenuItem("   Voice output system")
-        desc.set_callback(None)
-        controls.add(desc)
-
-        if self.ears_running:
-            controls.add(rumps.MenuItem("Stop Ears", callback=self.on_stop_ears))
-        else:
-            controls.add(rumps.MenuItem("Start Ears", callback=self.on_start_ears))
-        desc = rumps.MenuItem("   Voice input system")
-        desc.set_callback(None)
-        controls.add(desc)
-
-        self.menu.add(controls)
-
-        self.menu.add(rumps.separator)
-
-        # Voice selection submenu
-        voice_menu = rumps.MenuItem("🎤 Voice")
-        current_voice = self.get_current_voice()
-
-        # Voice categories - simplified to 4 essential voices
-        voice_categories = [
-            ("🎙️ Voices", [
-                ("en-US-JennyNeural", "American female"),
-                ("en-US-GuyNeural", "American male"),
-                ("en-GB-SoniaNeural", "British female"),
-                ("en-GB-RyanNeural", "British male"),
-            ]),
-        ]
-
-        for category_name, voices in voice_categories:
-            # Add category header
-            header = rumps.MenuItem(category_name)
-            header.set_callback(None)
-            voice_menu.add(header)
-
-            for voice_name, description in voices:
-                check = "✓ " if voice_name == current_voice else "   "
-                item = rumps.MenuItem(f"   {check}{voice_name}", callback=lambda s, v=voice_name: self.on_change_voice(v))
-                voice_menu.add(item)
-
-            voice_menu.add(rumps.separator)
-
-        voice_menu.add(rumps.MenuItem("Test Current Voice", callback=self.on_test_voice))
-        voice_menu.add(rumps.MenuItem("List All System Voices", callback=self.on_list_voices))
-
-        self.menu.add(voice_menu)
 
         self.menu.add(rumps.separator)
 
         # Quit
-        self.menu.add(rumps.MenuItem("Quit Menu Bar App", callback=self.on_quit))
+        self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
