@@ -107,18 +107,16 @@ INSTALL_DIR="$HOME/.openspeak"
 
 case "$1" in
     start)
-        echo "Starting OpenSpeak Voice Loop..."
+        echo "Starting OpenSpeak Menu Bar..."
         cd "$INSTALL_DIR"
 
-        # Start using the project's startup script
-        if [ -f "start_voice_loop.sh" ]; then
-            ./start_voice_loop.sh
+        # Start menu bar app for voice control
+        if [ -f "start_menu_bar.sh" ]; then
+            ./start_menu_bar.sh
         else
-            # Fallback: start manually
+            # Fallback: run directly
             source venv/bin/activate
-            nohup python main.py > logs/integration.log 2>&1 &
-            nohup python src/unified_audio.py > logs/audio.log 2>&1 &
-            echo "Voice loop started. Use 'molt-speak stop' to stop."
+            python3 unified_menu_bar.py
         fi
         ;;
 
@@ -134,20 +132,6 @@ case "$1" in
             pkill -f "unified_audio"
             pkill -f "main.py"
             echo "Voice loop stopped."
-        fi
-        ;;
-
-    menu)
-        echo "Opening Voice Menu..."
-        cd "$INSTALL_DIR"
-
-        # Use the project's menu script if available
-        if [ -f "start_menu_bar.sh" ]; then
-            ./start_menu_bar.sh
-        else
-            # Fallback: run directly
-            source venv/bin/activate
-            python3 unified_menu_bar.py
         fi
         ;;
 
@@ -200,9 +184,8 @@ case "$1" in
         echo "Usage: molt-speak [command]"
         echo ""
         echo "Commands:"
-        echo "  start    - Start the voice loop"
+        echo "  start    - Open menu bar control (select voice & start)"
         echo "  stop     - Stop the voice loop"
-        echo "  menu     - Open voice selection menu"
         echo "  status   - Check if voice loop is running"
         echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"

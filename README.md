@@ -10,8 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/jamescodes84/open_speak/main/instal
 
 After installation:
 ```bash
-molt-speak start   # Start the voice loop
-molt-speak menu    # Open voice selection
+molt-speak start   # Open menu bar (select voice & start)
 molt-speak status  # Check status
 molt-speak stop    # Stop the voice loop
 ```
