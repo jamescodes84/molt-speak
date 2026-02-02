@@ -1,0 +1,32 @@
+# Logs
+logs/
+*.log
+
+# Runtime files
+runtime/*.pid
+runtime/*_status.txt
+runtime/speech_output.txt
+runtime/voice/history.jsonl
+runtime/voice/state.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
