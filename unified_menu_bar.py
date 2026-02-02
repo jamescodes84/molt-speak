@@ -764,6 +764,16 @@ else
     return "no_terminal_found"
 end if
 '''
+            # Debug: Save AppleScript to file for inspection
+            import os
+            debug_path = os.path.expanduser('~/.openspeak/last_applescript.txt')
+            try:
+                with open(debug_path, 'w') as f:
+                    f.write(applescript)
+                logger.info(f"AppleScript saved to {debug_path} for inspection")
+            except Exception:
+                pass
+
             result = subprocess.run(
                 ['osascript', '-e', applescript],
                 capture_output=True,
