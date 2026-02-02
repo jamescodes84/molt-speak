@@ -91,6 +91,11 @@ class VoiceLoopMenuBar(rumps.App):
         voice_label = "🔊 Voice: Male" if is_male else "🔊 Voice: Female"
         self.menu.add(rumps.MenuItem(voice_label, callback=self.on_toggle_voice))
 
+        # Honorific toggle (sir/madam)
+        current_honorific = self.get_current_honorific()
+        honorific_label = f"🎩 Called: {current_honorific.title()}"
+        self.menu.add(rumps.MenuItem(honorific_label, callback=self.on_toggle_honorific))
+
         self.menu.add(rumps.separator)
 
         # Quit
@@ -426,8 +431,9 @@ end tell'''
         instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
         try:
             instruction = instructions_file.read_text()
-            # Replace template placeholder with actual path
+            # Replace template placeholders
             instruction = instruction.replace("{{SPEECH_FILE}}", speech_file)
+            instruction = instruction.replace("{{HONORIFIC}}", self.get_current_honorific())
         except Exception as e:
             logger.error(f"Failed to read AGENT_INSTRUCTIONS.txt: {e}")
             # Fallback to minimal instruction
@@ -600,6 +606,47 @@ end tell
             except Exception:
                 pass
         return "Samantha"
+
+    def get_current_honorific(self):
+        """Get the current honorific setting (sir/madam)."""
+        honorific_file = self.runtime_dir / "honorific.conf"
+        if honorific_file.exists():
+            try:
+                return honorific_file.read_text().strip()
+            except Exception:
+                pass
+        return "sir"
+
+    def on_toggle_honorific(self, sender):
+        """Toggle between sir and madam."""
+        current = self.get_current_honorific()
+        new_honorific = "madam" if current == "sir" else "sir"
+
+        try:
+            # Save honorific setting
+            honorific_file = self.runtime_dir / "honorific.conf"
+            honorific_file.write_text(new_honorific)
+            logger.info(f"Honorific changed to: {new_honorific}")
+
+            # Rebuild menu to update label
+            self.build_menu()
+
+            # Re-inject instructions if voice loop is running
+            if self.integration_running and self.mouth_running:
+                self.inject_agent_instructions()
+                rumps.alert(
+                    "Honorific Changed",
+                    f"You will now be addressed as \"{new_honorific}\".\n\nInstructions updated."
+                )
+            else:
+                rumps.alert(
+                    "Honorific Changed",
+                    f"You will be addressed as \"{new_honorific}\" when voice loop starts."
+                )
+
+        except Exception as e:
+            logger.error(f"Error changing honorific: {e}")
+            rumps.alert("Error", f"Failed to change honorific: {e}")
 
     def on_change_voice(self, voice_name):
         """Change the TTS voice."""
