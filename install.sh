@@ -104,13 +104,26 @@ for dir in open_mouth open_ears; do
         cd "$INSTALL_DIR/$dir"
 
         if [ ! -d "venv" ]; then
+            echo "    Creating virtual environment..."
             python3 -m venv venv
         fi
 
         if [ -f "requirements.txt" ]; then
             source venv/bin/activate
-            pip install --quiet --upgrade pip
-            pip install --quiet -r requirements.txt
+            echo "    Upgrading pip..."
+            pip install --upgrade pip > /dev/null 2>&1
+
+            if [ "$dir" = "open_ears" ]; then
+                echo -e "    ${YELLOW}Installing dependencies (PyTorch + Whisper - 2-5 min)...${NC}"
+            else
+                echo "    Installing dependencies..."
+            fi
+
+            pip install -r requirements.txt 2>&1 | while IFS= read -r line; do
+                if [[ "$line" =~ "Collecting" ]] || [[ "$line" =~ "Downloading" ]] || [[ "$line" =~ "Installing" ]]; then
+                    echo "      $line"
+                fi
+            done
             deactivate
             echo -e "${GREEN}  ✓${NC} $dir configured"
         fi
