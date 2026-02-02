@@ -676,11 +676,16 @@ end tell'''
                 pass
 
         try:
-            # Copy instruction to clipboard
-            subprocess.run(['pbcopy'], input=instruction.encode(), check=True)
-            logger.info(f"Copied instruction to clipboard, looking for window pattern: {window_pattern}")
+            # Write instructions to temp file to avoid clipboard paste warnings
+            import tempfile
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+            temp_file.write(instruction)
+            temp_file.close()
+            temp_path = temp_file.name
 
-            # AppleScript: Try Terminal first, then iTerm2, paste, then restore focus
+            logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
+
+            # AppleScript: Use do script / write text to inject directly (no bracketed paste warning)
             applescript = f'''
 -- Save the currently active app to restore later
 set previousApp to ""
@@ -691,6 +696,7 @@ end tell
 -- Try to find the target terminal window
 set targetApp to ""
 set foundIt to false
+set targetRef to missing value
 
 -- Check Terminal.app first
 tell application "System Events"
@@ -705,44 +711,46 @@ if targetApp is "Terminal" then
     tell application "Terminal"
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                set index of w to 1
-                activate
+                set targetRef to selected tab of w
                 set foundIt to true
                 exit repeat
             end if
         end repeat
         if not foundIt and (count of windows) > 0 then
-            set index of front window to 1
-            activate
+            set targetRef to selected tab of front window
             set foundIt to true
+        end if
+
+        -- Inject directly using do script (avoids paste warning)
+        if foundIt then
+            do script "cat '{temp_path}'" in targetRef
         end if
     end tell
 else if targetApp is "iTerm2" then
     tell application "iTerm2"
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                select w
-                activate
+                set targetRef to current session of current tab of w
                 set foundIt to true
                 exit repeat
             end if
         end repeat
         if not foundIt and (count of windows) > 0 then
-            activate
+            set targetRef to current session of current tab of current window
             set foundIt to true
+        end if
+
+        -- Inject directly using write text (avoids paste warning)
+        if foundIt then
+            tell targetRef
+                write text "cat '{temp_path}'"
+            end tell
         end if
     end tell
 end if
 
--- Paste and enter if we found a window
+-- Restore focus to the previous app
 if foundIt then
-    delay 0.8
-    tell application "System Events"
-        keystroke "v" using command down
-        delay 0.2
-        keystroke return
-    end tell
-    -- Restore focus to the previous app
     delay 0.1
     if previousApp is not "" then
         tell application previousApp to activate
@@ -758,10 +766,18 @@ end if
                 text=True,
                 timeout=10
             )
+
+            # Clean up temp file
+            try:
+                import os
+                os.unlink(temp_path)
+            except Exception:
+                pass
+
             if result.returncode == 0:
                 output = result.stdout.strip()
                 if output == "success":
-                    logger.info("Injected agent instructions via paste")
+                    logger.info("Injected agent instructions via do script (no paste warning)")
                 else:
                     logger.warning(f"Could not find terminal window: {output}")
             else:
