@@ -676,18 +676,21 @@ end tell'''
                 pass
 
         try:
-            # Write instructions to temp file to avoid clipboard paste warnings
-            import tempfile
-            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
-            temp_file.write(instruction)
-            temp_file.close()
-            temp_path = temp_file.name
-            # Escape for AppleScript (same approach as ears)
-            escaped_path = temp_path.replace('\\', '\\\\').replace('"', '\\"')
+            # Build AppleScript command that sends text directly to TUI
+            # Replace newlines with AppleScript's 'return' character for proper multiline handling
+            # Split into lines and use AppleScript concatenation
+            lines = instruction.split('\n')
+            # Escape quotes and backslashes in each line for AppleScript
+            escaped_lines = [line.replace('\\', '\\\\').replace('"', '\\"') for line in lines]
+            # Build AppleScript string with proper line concatenation using 'return'
+            if len(escaped_lines) == 1:
+                applescript_text = f'"{escaped_lines[0]}"'
+            else:
+                # Join lines with AppleScript's 'return' character
+                applescript_text = ' & return & '.join(f'"{line}"' for line in escaped_lines)
 
             logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
-            logger.info(f"Temp file path: {temp_path}")
-            logger.info(f"Escaped path: {escaped_path}")
+            logger.info(f"Instructions length: {len(instruction)} chars, {len(lines)} lines")
 
             # AppleScript: Use do script / write text to inject directly (no bracketed paste warning)
             applescript = f'''
@@ -716,9 +719,9 @@ tell application "Terminal"
         set foundIt to true
     end if
 
-    -- Inject directly using do script (avoids paste warning)
+    -- Send text directly to TUI (like ears does)
     if foundIt then
-        do script "cat \\"{escaped_path}\\"" in targetRef
+        do script {applescript_text} in targetRef
     end if
 end tell
 
@@ -749,13 +752,6 @@ end if
                 text=True,
                 timeout=10
             )
-
-            # Clean up temp file
-            try:
-                import os
-                os.unlink(temp_path)
-            except Exception:
-                pass
 
             if result.returncode == 0:
                 output = result.stdout.strip()
