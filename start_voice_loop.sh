@@ -110,8 +110,14 @@ sleep 2
 if ps -p $INTEGRATION_PID > /dev/null; then
     echo -e "      ${GREEN}✓ Integration Coordinator started${NC}"
 else
-    echo -e "      ${RED}✗ Failed to start Integration Coordinator${NC}"
-    echo "      Check log: $LOGS_DIR/integration.log"
+    echo -e "      ${RED}✗ Failed to start Integration Coordinator${NC}" >&2
+    echo "      Check log: $LOGS_DIR/integration.log" >&2
+    # Output actual error from log
+    if [ -f "$LOGS_DIR/integration.log" ]; then
+        echo "" >&2
+        echo "Last 10 lines of log:" >&2
+        tail -10 "$LOGS_DIR/integration.log" >&2
+    fi
     exit 1
 fi
 
@@ -134,8 +140,20 @@ if ps -p $AUDIO_PID > /dev/null; then
     echo -e "      ${GREEN}✓ Unified Audio System started${NC}"
     echo "      ${BLUE}  (Mouth + Ears running in single process)${NC}"
 else
-    echo -e "      ${RED}✗ Failed to start Unified Audio System${NC}"
-    echo "      Check log: $LOGS_DIR/audio.log"
+    echo -e "      ${RED}✗ Failed to start Unified Audio System${NC}" >&2
+    echo "      Check log: $LOGS_DIR/audio.log" >&2
+    # Output actual error from log
+    if [ -f "$LOGS_DIR/audio.log" ]; then
+        echo "" >&2
+        echo "Last 20 lines of audio log:" >&2
+        tail -20 "$LOGS_DIR/audio.log" >&2
+    fi
+    # Also check mouth log for errors
+    if [ -f "$LOGS_DIR/mouth.log" ]; then
+        echo "" >&2
+        echo "Last 10 lines of mouth log:" >&2
+        tail -10 "$LOGS_DIR/mouth.log" >&2
+    fi
     exit 1
 fi
 
