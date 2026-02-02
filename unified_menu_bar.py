@@ -678,10 +678,13 @@ end tell'''
         try:
             # Write instructions to temp file to avoid clipboard paste warnings
             import tempfile
+            import shlex
             temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
             temp_file.write(instruction)
             temp_file.close()
             temp_path = temp_file.name
+            # Properly escape path for shell command
+            escaped_path = shlex.quote(temp_path)
 
             logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
 
@@ -723,7 +726,7 @@ if targetApp is "Terminal" then
 
         -- Inject directly using do script (avoids paste warning)
         if foundIt then
-            do script "cat '" & "{temp_path}" & "' && echo" in targetRef
+            do script "cat {escaped_path} && echo" in targetRef
         end if
     end tell
 else if targetApp is "iTerm2" then
@@ -743,7 +746,7 @@ else if targetApp is "iTerm2" then
         -- Inject directly using write text (avoids paste warning)
         if foundIt then
             tell targetRef
-                write text "cat '" & "{temp_path}" & "' && echo"
+                write text "cat {escaped_path} && echo"
             end tell
         end if
     end tell
