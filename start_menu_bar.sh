@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Start Unified OpenClaw Voice Loop Menu Bar App
+# Start Molt Speak Menu Bar App
 #
-# Provides easy control of all three systems from the macOS menu bar
+# Provides easy control of the voice loop from the macOS menu bar
 #
 
 set -e
@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                                                            ║${NC}"
-echo -e "${GREEN}║        OpenClaw Voice Loop - Menu Bar Control              ║${NC}"
+echo -e "${GREEN}║          Molt Speak - Voice Loop Menu Bar                  ║${NC}"
 echo -e "${GREEN}║                                                            ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -55,6 +55,7 @@ echo -e "${GREEN}✅ Menu bar icon should appear in your status bar${NC}"
 echo ""
 echo -e "${BLUE}Features:${NC}"
 echo "  • Start/Stop complete voice loop"
+echo "  • 23 voices across 7 accents"
 echo "  • Control individual systems"
 echo "  • View logs in real-time"
 echo "  • Quick access to configuration"
