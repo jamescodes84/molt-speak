@@ -89,11 +89,18 @@ class UnifiedAudioSystem:
         ears_log_file = open(ears_log, "a")
 
         logger.info("Starting OpenClaw Ears (voice input)...")
+
+        # Disable MPS to avoid PyTorch sparse tensor bug on Apple Silicon
+        import os
+        env = os.environ.copy()
+        env['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+
         self.ears_process = subprocess.Popen(
             [python_cmd, str(ears_main)],
             cwd=str(ears_dir),
             stdout=ears_log_file,
-            stderr=subprocess.STDOUT
+            stderr=subprocess.STDOUT,
+            env=env
         )
         logger.info(f"✓ OpenClaw Ears started (PID: {self.ears_process.pid})")
 

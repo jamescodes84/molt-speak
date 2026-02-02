@@ -1,0 +1,283 @@
+=============================================================================
+AGENT SETUP INSTRUCTIONS - How to Speak to Your User
+=============================================================================
+
+⚠️  CRITICAL - READ THIS FIRST ⚠️
+
+DO NOT MODIFY THE SPEECH SYSTEM CODE!
+
+The speech system is already built and working perfectly.
+
+✅ DO:
+  - Use the speech system as-is
+  - Write text to ~/.openclaw/speech_output.txt
+  - Report issues to the user
+  - Read this guide carefully
+
+❌ DO NOT:
+  - Modify any Python files in the speech system
+  - Try to "improve" or "optimize" the code
+  - Refactor or restructure the system
+  - Add new features without explicit user request
+  - Change configuration files
+
+The speech system is production-ready. Your job is to USE it, not modify it.
+
+=============================================================================
+HOW THE SPEECH SYSTEM WORKS
+=============================================================================
+
+OpenClaw Mouth is the OUTPUT companion to OpenClaw Ears (voice INPUT).
+
+Flow:
+  1. You (the agent) write text to ~/.openclaw/speech_output.txt
+  2. Speech system detects the new text
+  3. Text is synthesized to speech using Edge-TTS
+  4. Speech plays through the computer's speakers
+  5. Your user hears your response!
+
+It's that simple. Just write text to a file, and it will be spoken.
+
+SPEAKING SIGNAL FOR COORDINATION:
+  - The system automatically creates a signal file at:
+    ~/.openclaw/mouth_status.txt
+  - This file indicates when you're speaking (status: SPEAKING, IDLE, etc.)
+  - OpenClaw Ears monitors this to pause listening while you speak
+  - You don't need to do anything - it's automatic!
+  - The terminal shows a green "AGENT SPEAKING" banner when active
+  - See SPEAKING_SIGNAL.md for full integration details
+
+=============================================================================
+STEP 1: START THE SPEECH SYSTEM
+=============================================================================
+
+Open a terminal window and run:
+
+    cd /Users/albus/Documents/Coding\ Workspace/open_mouth/open_mouth
+    ./start_speech_system.sh
+
+You should see a terminal interface showing:
+  - Status: IDLE / SPEAKING / QUEUED
+  - Current text being spoken
+  - Progress bar
+  - Voice being used
+  - Queue status
+
+Leave this terminal window open - the speech system runs here.
+
+=============================================================================
+STEP 2: WRITE TEXT TO SPEAK
+=============================================================================
+
+To make the system speak, write to the file:
+
+    ~/.openclaw/speech_output.txt
+
+Example in Bash:
+    echo "Hello! How can I help you today?" >> ~/.openclaw/speech_output.txt
+
+Example in Python:
+    with open(os.path.expanduser("~/.openclaw/speech_output.txt"), "a") as f:
+        f.write("Hello! How can I help you today?\n")
+
+The speech system monitors this file and automatically speaks any new lines.
+
+=============================================================================
+STEP 3: MULTIPLE MESSAGES
+=============================================================================
+
+You can queue multiple messages by writing multiple lines:
+
+    echo "First message" >> ~/.openclaw/speech_output.txt
+    echo "Second message" >> ~/.openclaw/speech_output.txt
+    echo "Third message" >> ~/.openclaw/speech_output.txt
+
+The system will speak them in order.
+
+=============================================================================
+IMPORTANT NOTES
+=============================================================================
+
+1. FILE APPEND ONLY
+   - Always use >> (append) not > (overwrite)
+   - Each line becomes a separate utterance
+   - Empty lines are ignored
+
+2. TEXT FORMATTING
+   - Keep text natural and conversational
+   - Avoid special characters that don't read well
+   - Emojis will be skipped
+   - Markdown formatting will be read literally
+
+3. QUEUE MANAGEMENT
+   - System queues up to 10 messages
+   - If queue is full, wait or increase MAX_QUEUE_SIZE
+   - Check terminal display for queue status
+
+4. PERFORMANCE
+   - First utterance has ~1-2 second latency (synthesis)
+   - Subsequent utterances are queued and processed
+   - System runs continuously - no restart needed
+
+=============================================================================
+INTEGRATION PATTERNS
+=============================================================================
+
+PATTERN 1: Simple Bash Script
+------------------------------
+#!/bin/bash
+SPEECH_FILE="$HOME/.openclaw/speech_output.txt"
+
+speak() {
+    echo "$1" >> "$SPEECH_FILE"
+}
+
+speak "Welcome to the system"
+speak "I am ready to help you"
+
+
+PATTERN 2: Python Function
+---------------------------
+import os
+from pathlib import Path
+
+def speak(text: str) -> None:
+    """Send text to OpenClaw Mouth for TTS."""
+    speech_file = Path.home() / ".openclaw" / "speech_output.txt"
+    with open(speech_file, "a") as f:
+        f.write(f"{text}\n")
+
+# Usage
+speak("Hello from Python!")
+
+
+PATTERN 3: With Error Handling
+--------------------------------
+import os
+from pathlib import Path
+
+def speak_safe(text: str) -> bool:
+    """Send text to speech system with error handling."""
+    try:
+        speech_file = Path.home() / ".openclaw" / "speech_output.txt"
+        speech_file.parent.mkdir(exist_ok=True)
+
+        with open(speech_file, "a") as f:
+            f.write(f"{text}\n")
+
+        return True
+
+    except Exception as e:
+        print(f"Failed to speak: {e}")
+        return False
+
+=============================================================================
+TROUBLESHOOTING
+=============================================================================
+
+Problem: Nothing is being spoken
+---------------------------------
+1. Check if speech system is running (look for terminal window)
+2. Verify file path: ~/.openclaw/speech_output.txt
+3. Check file permissions
+4. Look at speech system terminal for errors
+
+Problem: Speech is garbled or wrong voice
+------------------------------------------
+1. Check voice setting in speech system
+2. Restart with different voice:
+   ./start_speech_system.sh --voice en-US-AriaNeural
+
+Problem: Messages are delayed
+------------------------------
+1. Check queue size in terminal display
+2. Queue might be full or system is catching up
+3. Normal latency is <1 second per message
+
+Problem: System crashed
+-----------------------
+1. Check speech system terminal for error messages
+2. Restart: ./start_speech_system.sh
+3. Report error to user (don't try to fix the code)
+
+=============================================================================
+VOICE OPTIONS
+=============================================================================
+
+To use a different voice, start with --voice flag:
+
+    ./start_speech_system.sh --voice en-US-AriaNeural
+
+Common voices:
+  - en-US-ChristopherNeural (male, default)
+  - en-US-AriaNeural (female)
+  - en-US-JennyNeural (female)
+  - en-US-GuyNeural (male)
+  - en-US-DavisNeural (male)
+
+List all available voices:
+    python3 main.py --list-voices
+
+=============================================================================
+ADVANCED: CONFIGURATION
+=============================================================================
+
+Optional: Create .env file for custom settings:
+
+TTS_VOICE=en-US-ChristopherNeural
+TTS_RATE=1.0                    # Speech speed (0.5 to 2.0)
+TTS_VOLUME=1.0                  # Volume (0.0 to 1.0)
+INPUT_FILE=~/.openclaw/speech_output.txt
+LOG_LEVEL=INFO
+
+Most users don't need to change these.
+
+=============================================================================
+RUNNING WITH OPENCLAW EARS (Full Voice Loop)
+=============================================================================
+
+For complete voice conversation:
+
+Terminal 1 - Voice Output (Mouth):
+    cd /path/to/open_mouth
+    ./start_speech_system.sh
+
+Terminal 2 - Voice Input (Ears):
+    cd /path/to/open_ears
+    ./start_voice_system.sh
+
+Terminal 3 - Your Agent:
+    # Run your agent that reads from Ears and writes to Mouth
+
+Now you have:
+  User speaks → Ears → Agent → Mouth → User hears
+
+=============================================================================
+FINAL REMINDERS
+=============================================================================
+
+✅ The speech system is complete and working
+✅ Just write to ~/.openclaw/speech_output.txt
+✅ One line = one spoken utterance
+✅ Always append (>>) never overwrite (>)
+✅ Check the terminal display for status
+
+❌ DO NOT modify the Python code
+❌ DO NOT try to debug or fix issues yourself
+❌ DO NOT add features
+
+If something doesn't work, REPORT IT TO THE USER.
+Do not attempt to fix it by modifying the code.
+
+=============================================================================
+Questions?
+=============================================================================
+
+Read the README.md for more details.
+
+The system is designed to be simple:
+  Write text → Text is spoken
+
+That's it. Use it and enjoy!
+
+=============================================================================
