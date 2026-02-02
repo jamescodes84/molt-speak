@@ -86,7 +86,8 @@ class VoiceLoopMenuBar(rumps.App):
 
         # Voice toggle
         current_voice = self.get_current_voice()
-        is_male = "Guy" in current_voice or "Ryan" in current_voice
+        # Check for macOS male voices (Alex, Daniel, etc.) or Edge-TTS male voices
+        is_male = current_voice in ("Alex", "Daniel", "Fred", "Tom") or "Guy" in current_voice
         voice_label = "🔊 Voice: Male" if is_male else "🔊 Voice: Female"
         self.menu.add(rumps.MenuItem(voice_label, callback=self.on_toggle_voice))
 
@@ -98,13 +99,14 @@ class VoiceLoopMenuBar(rumps.App):
     def on_toggle_voice(self, sender):
         """Toggle between male and female voice."""
         current_voice = self.get_current_voice()
-        is_male = "Guy" in current_voice or "Ryan" in current_voice
+        # Check for macOS male voices (Alex, Daniel, etc.)
+        is_male = current_voice in ("Alex", "Daniel", "Fred", "Tom") or "Guy" in current_voice
 
-        # Toggle to opposite gender
+        # Toggle to opposite gender (using macOS voice names for --local mode)
         if is_male:
-            new_voice = "en-US-JennyNeural"  # Female
+            new_voice = "Samantha"  # Female (macOS)
         else:
-            new_voice = "en-US-GuyNeural"  # Male
+            new_voice = "Alex"  # Male (macOS)
 
         self.on_change_voice(new_voice)
 
