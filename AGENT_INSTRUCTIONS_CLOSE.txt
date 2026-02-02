@@ -1,0 +1,1 @@
+VOICE MODE OFF: Stop writing to speech file. Resume normal text-only responses.

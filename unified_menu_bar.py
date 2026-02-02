@@ -446,6 +446,9 @@ class VoiceLoopMenuBar(rumps.App):
         try:
             logger.info("Stopping voice loop...")
 
+            # Inject close message to tell agent voice mode is off
+            self.inject_close_message()
+
             # Run stop script
             script_path = self.project_dir / "stop_voice_loop.sh"
             result = subprocess.run(
@@ -765,6 +768,60 @@ end if
             logger.warning("Timed out trying to inject instructions")
         except Exception as e:
             logger.warning(f"Error injecting agent instructions: {e}")
+
+    def inject_close_message(self):
+        """Inject close message to tell agent voice mode is off."""
+        # Read the close message file
+        close_file = self.project_dir / "AGENT_INSTRUCTIONS_CLOSE.txt"
+        try:
+            message = close_file.read_text().strip()
+        except Exception as e:
+            logger.error(f"Failed to read AGENT_INSTRUCTIONS_CLOSE.txt: {e}")
+            message = "VOICE MODE OFF: Resume normal text-only responses."
+
+        # Read window pattern from open_ears settings
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Escape for AppleScript
+            escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
+
+            logger.info(f"Injecting close message, looking for window pattern: {window_pattern}")
+
+            applescript = f'''
+tell application "Terminal"
+    repeat with w in windows
+        if name of w contains "{window_pattern}" then
+            set targetRef to selected tab of w
+            do script "{escaped_message}" in targetRef
+            return "success"
+        end if
+    end repeat
+    return "no_terminal_found"
+end tell
+'''
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip() == "success":
+                logger.info("Injected close message successfully")
+            else:
+                logger.warning(f"Could not inject close message: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"Error injecting close message: {e}")
 
     def on_open_config_dir(self, sender):
         """Open project runtime directory."""
