@@ -145,6 +145,16 @@ INSTALL_DIR="$HOME/.openspeak"
 
 case "$1" in
     start)
+        # Check if menu bar app is already running
+        if pgrep -f "unified_menu_bar.py" > /dev/null; then
+            echo "OpenSpeak menu bar is already running"
+            echo ""
+            echo "To stop and restart:"
+            echo "  molt-speak quit"
+            echo "  molt-speak start"
+            exit 0
+        fi
+
         echo "Starting OpenSpeak Menu Bar..."
         cd "$INSTALL_DIR"
 
@@ -171,10 +181,34 @@ case "$1" in
             pkill -f "main.py"
             echo "Voice loop stopped."
         fi
+        echo ""
+        echo "Note: Menu bar app still running. Use 'molt-speak quit' to quit everything."
+        ;;
+
+    quit)
+        echo "Quitting OpenSpeak completely..."
+        cd "$INSTALL_DIR"
+
+        # Stop voice loop first
+        if [ -f "stop_voice_loop.sh" ]; then
+            ./stop_voice_loop.sh 2>/dev/null
+        else
+            pkill -f "unified_audio" 2>/dev/null
+            pkill -f "main.py" 2>/dev/null
+        fi
+
+        # Quit menu bar app
+        pkill -f "unified_menu_bar.py" 2>/dev/null
+        echo "✓ All OpenSpeak processes stopped"
         ;;
 
     status)
         echo "Checking OpenSpeak status..."
+        if pgrep -f "unified_menu_bar.py" > /dev/null; then
+            echo "✓ Menu bar app is running"
+        else
+            echo "✗ Menu bar app is not running"
+        fi
         if pgrep -f "unified_audio" > /dev/null; then
             echo "✓ Voice loop is running"
             if pgrep -f "main.py" > /dev/null; then
@@ -223,7 +257,8 @@ case "$1" in
         echo ""
         echo "Commands:"
         echo "  start    - Open menu bar control (select voice & start)"
-        echo "  stop     - Stop the voice loop"
+        echo "  stop     - Stop the voice loop (menu bar stays open)"
+        echo "  quit     - Quit everything (voice loop + menu bar)"
         echo "  status   - Check if voice loop is running"
         echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"
