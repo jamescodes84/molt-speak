@@ -676,10 +676,18 @@ end tell'''
                 pass
 
         try:
-            # Escape instructions for AppleScript (same approach as ears)
-            escaped_text = instruction.replace('\\', '\\\\').replace('"', '\\"')
+            # Write instructions to temp file to avoid clipboard paste warnings
+            import tempfile
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+            temp_file.write(instruction)
+            temp_file.close()
+            temp_path = temp_file.name
+            # Escape for AppleScript (same approach as ears)
+            escaped_path = temp_path.replace('\\', '\\\\').replace('"', '\\"')
 
             logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
+            logger.info(f"Temp file path: {temp_path}")
+            logger.info(f"Escaped path: {escaped_path}")
 
             # AppleScript: Use do script / write text to inject directly (no bracketed paste warning)
             applescript = f'''
@@ -717,9 +725,9 @@ if targetApp is "Terminal" then
             set foundIt to true
         end if
 
-        -- Inject directly using do script (same as ears - avoids paste warning)
+        -- Inject directly using do script (avoids paste warning)
         if foundIt then
-            do script "{escaped_text}" in targetRef
+            do script "cat \\"{escaped_path}\\"" in targetRef
         end if
     end tell
 else if targetApp is "iTerm2" then
@@ -740,10 +748,10 @@ else if targetApp is "iTerm2" then
             end tell
         end if
 
-        -- Inject directly using write text (same as ears - avoids paste warning)
+        -- Inject directly using write text (avoids paste warning)
         if foundIt then
             tell targetRef
-                write text "{escaped_text}"
+                write text "cat \\"{escaped_path}\\""
             end tell
         end if
     end tell
@@ -776,6 +784,13 @@ end if
                 text=True,
                 timeout=10
             )
+
+            # Clean up temp file
+            try:
+                import os
+                os.unlink(temp_path)
+            except Exception:
+                pass
 
             if result.returncode == 0:
                 output = result.stdout.strip()
