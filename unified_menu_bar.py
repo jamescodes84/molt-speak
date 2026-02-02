@@ -736,10 +736,10 @@ end if
 
 -- Paste and enter if we found a window
 if foundIt then
-    delay 0.3
+    delay 0.8
     tell application "System Events"
         keystroke "v" using command down
-        delay 0.1
+        delay 0.2
         keystroke return
     end tell
     -- Restore focus to the previous app
