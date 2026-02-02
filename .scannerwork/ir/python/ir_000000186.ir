@@ -1,17 +1,0 @@
-
-{r"
-        Get list of favorite voices.
-
-        Returns:
-            List of favorite voice dictionaries
-        "str
-"favorites"strself
-´ ´("c)
-'
-
-» »("#get-field# config:$
-"
-
-» »('"#array-read#:
-
-» »('*?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py

@@ -1,125 +1,0 @@
-
-1src.gui.control_client.ControlClient.change_voiceH
->/Users/albus/open_speak-1/open_mouth/src/gui/control_client.pye e("7"8*â
-4x x(5W
-U
-x x(4
-%1"__concat*"
-x x(,
-Voice changed to: *
-x- x(2	
-
-voicedb
-x x(5
-%2*&
-
-__unknown_file (
-
-
-logger*"
-
-__unknown_file (
-
-%12info"
-y y(
-
-True*í
-5{ {(?`
-^
-{ {(>
-%3"__concat*(
-{ {(3
-Failed to change voice: *
-{4 {(<
-
-
-responseec
-{ {(?
-%4*&
-
-__unknown_file (
-
-
-logger*"
-
-__unknown_file (
-
-%32error"
-| |(	
-
-False*ë
-6u u(-
-u u(-
-%5*D
-
-__unknown_file ((&
-$src.gui.control_client.ControlClient*'
-
-__unknown_file (
-	
-command2send_commandB
-@
-u u(-
-
-response"__id*"
-
-__unknown_file (
-
-%5}{
-w w(2
-%6"str.startswith*(
-
-__unknown_file (
-
-
-response*#
-
-__unknown_file (
-OK:2
-startswith*
-4
-5*Ò
-7q q(4{
-y
-q q(4
-%7"__concat*
-q q(%
-CHANGE_VOICE:*
-q& q(+	
-
-voice*
-q, q(-
-,*
-q. q(2
-
-modeA
-?
-q q(4	
-command"__id*"
-
-__unknown_file (
-
-%7*
-6*©
-8s s(-R
-P
-s s(-
-%8"__concat*
-s s(%
-CHANGE_VOICE:*
-s& s(+	
-
-voiceA
-?
-s s(-	
-command"__id*"
-
-__unknown_file (
-
-%8*
-6:
-e e(%
-voice:
-e' e(A
-modeB(&
-$src.gui.control_client.ControlClientH

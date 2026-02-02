@@ -1,73 +1,0 @@
-
-2src.config.voice_config.VoiceConfig.set_last_voiceI
-?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py[ [("2*×
-2\ b(i
-g
-c c(
-%2"__id*O
-
-__unknown_file (3*1%
-#src.config.voice_config.VoiceConfig"
-config©¦
-c c()
-%1"dict.__setitem__*"
-
-__unknown_file (
-
-%2**
-
-__unknown_file (
-
-last_voice*%
-
-__unknown_file (	
-
-voice2__setitem__i
-g
-d d(
-%4"__id*O
-
-__unknown_file (3*1%
-#src.config.voice_config.VoiceConfig"
-config§¤
-d d('
-%3"dict.__setitem__*"
-
-__unknown_file (
-
-%4*)
-
-__unknown_file (
-	last_mode*$
-
-__unknown_file (
-
-mode2__setitem__·´
-e e(*
-%5*C
-
-__unknown_file ('%
-#src.config.voice_config.VoiceConfig*%
-
-__unknown_file (	
-
-voice*$
-
-__unknown_file (
-
-mode2add_recent_voice][
-f f(
-%6*C
-
-__unknown_file ('%
-#src.config.voice_config.VoiceConfig2save*
-3*5
-3
-voice_config.py"
-h h(
-implicit return:
-[ [('
-voice:
-[) [(2
-modeB'%
-#src.config.voice_config.VoiceConfigH

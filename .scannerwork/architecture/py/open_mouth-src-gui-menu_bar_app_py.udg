@@ -1,156 +1,0 @@
-
-1.0PythonFrontend"1770057729980*py2.BÙ
-
-imports1
-
-extends2
-
-returns3
-
-	has param4
-
-module5
-
-
-class6
-
-function7
-'
-"open_mouth/src/gui/menu_bar_app.py9
-
-src.gui.menu_bar_app11
-
-logging12
-
-typing14
-
-src.gui.control_client16
-
-src.gui.voice_manager18
-
-src.config.voice_config20
-
-
-subprocess22
-
-os24
-*
-$src.gui.menu_bar_app.OpenClawMenuBar26
-5
-/src.gui.menu_bar_app.OpenClawMenuBar.build_menu28
-:
-4src.gui.menu_bar_app.OpenClawMenuBar.on_add_favorite30
-=
-7src.gui.menu_bar_app.OpenClawMenuBar.on_show_visualizer32
-7
-1src.gui.menu_bar_app.OpenClawMenuBar.on_reconnect34
-3
--src.gui.menu_bar_app.OpenClawMenuBar.__init__36
-2
-,src.gui.menu_bar_app.OpenClawMenuBar.on_quit38
-:
-4src.gui.menu_bar_app.OpenClawMenuBar.on_voice_select40
-	
-str42
-=
-7src.gui.menu_bar_app.OpenClawMenuBar.on_remove_favorite44
-8
-2src.gui.menu_bar_app.OpenClawMenuBar.update_status46
-<
-6src.gui.menu_bar_app.OpenClawMenuBar.on_refresh_voices48
-
-src.gui.menu_bar_app.main50J
-
-8
-89 jæ
- 
-10
-10115 *
-8 (
-
-13
-13125
-
-15
-15145
-
-17
-17165
-
-19
-19185
-
-21
-21205
-
-23
-23225
-
-25
-25245
-
-27
-27266 210
-
-29
-29287 227
-
-31
-31307 227
-
-33
-33327 227
-
-35
-35347 227
-
-37
-37367 227
-
-39
-39387 227
-
-41
-41407 227
-
-43
-43426
-
-45
-45447 227
-
-47
-47467 227
-
-49
-49487 227
-
-51
-51507 210rò
-
-10131*
-8 (
-
-10151*
-8 ((
-
-10171*
-8 (*
-
-10191*
-8 ((
-
-10211*
-8 (.
-
-10231*
-8‘ ‘(
-
-10251*
-8’ ’(
-
-41434*
-8Æ	 Æ(
-
-41434*
-8Æ	 Æ(

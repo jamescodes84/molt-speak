@@ -1,183 +1,0 @@
-
-*src.core.state_manager.SpeechState.to_dictH
->/Users/albus/open_speak-1/open_mouth/src/core/state_manager.py ("2*”
-2 (
- ((	
-%1"dicth
-f
-   (!
-%2"__id*N
-
-__unknown_file (2*0$
-"src.core.state_manager.SpeechState"
-statusç
-ä
-   (!
-%3"__mapSet*"
-
-__unknown_file (
-
-%1*&
-
-__unknown_file (
-
-status*"
-
-__unknown_file (
-
-%2n
-l
-! !(-
-%4"__id*T
-
-__unknown_file (8*6$
-"src.core.state_manager.SpeechState"
-current_textì
-ê
-! !(-
-%5"__mapSet*"
-
-__unknown_file (
-
-%1*,
-
-__unknown_file (
-current_text*"
-
-__unknown_file (
-
-%4l
-j
-" "()
-%6"__id*R
-
-__unknown_file (6*4$
-"src.core.state_manager.SpeechState"
-
-queue_sizeë
-é
-" "()
-%7"__mapSet*"
-
-__unknown_file (
-
-%1**
-
-__unknown_file (
-
-queue_size*"
-
-__unknown_file (
-
-%6n
-l
-# #(-
-%8"__id*T
-
-__unknown_file (8*6$
-"src.core.state_manager.SpeechState"
-total_spokenì
-ê
-# #(-
-%9"__mapSet*"
-
-__unknown_file (
-
-%1*,
-
-__unknown_file (
-total_spoken*"
-
-__unknown_file (
-
-%8h
-f
-$ $(
-%10"__id*M
-
-__unknown_file (1*/$
-"src.core.state_manager.SpeechState"
-voiceé
-ã
-$ $(
-%11"__mapSet*"
-
-__unknown_file (
-
-%1*%
-
-__unknown_file (	
-voice*#
-
-__unknown_file (
-
-%10k
-i
-% %(%
-%12"__id*P
-
-__unknown_file (4*2$
-"src.core.state_manager.SpeechState"
-
-progressë
-é
-% %(%
-%13"__mapSet*"
-
-__unknown_file (
-
-%1*(
-
-__unknown_file (
-
-progress*#
-
-__unknown_file (
-
-%12p
-n
-& &(/
-%14"__id*U
-
-__unknown_file (9*7$
-"src.core.state_manager.SpeechState"
-error_messageñ
-ì
-& &(/
-%15"__mapSet*"
-
-__unknown_file (
-
-%1*-
-
-__unknown_file (
-error_message*#
-
-__unknown_file (
-
-%14o
-m
-' '(-
-%16"__id*T
-
-__unknown_file (8*6$
-"src.core.state_manager.SpeechState"
-queued_itemsï
-í
-' '(-
-%17"__mapSet*"
-
-__unknown_file (
-
-%1*,
-
-__unknown_file (
-queued_items*#
-
-__unknown_file (
-
-%16"
- ((	
-
-%1B&$
-"src.core.state_manager.SpeechStateH

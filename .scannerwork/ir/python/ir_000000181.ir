@@ -1,8 +1,0 @@
-
-"Get last used rate."str
-"last_rate"strselfv v("]'
-%
-x x("#get-field# config:"
- 
-x x('"#array-read#:
-x x('*?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py

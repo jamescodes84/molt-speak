@@ -1,23 +1,0 @@
-
-È¾"
-        Speak text and play it (synchronous wrapper)
-
-        :param text: Text to speak
-        :param output_file: Optional output file path
-        :return: Path to audio file
-        "strself
-œ œ(text
-œ œ(!output_file
-œ# œ(3"Š#
-!
-
-¤ ¤(G"#unknown-value##
-!
-
-¤ ¤(H"#unknown-value#,
-*
-
-¤ ¤(H"
-asyncio.runnersrun:
-
-¤ ¤(H*?/Users/albus/open_speak-1/open_ears/src/services/tts_service.py

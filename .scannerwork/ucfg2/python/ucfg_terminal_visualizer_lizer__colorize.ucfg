@@ -1,46 +1,0 @@
-
-9src.core.terminal_visualizer.TerminalVisualizer._colorizeN
-D/Users/albus/open_speak-1/open_mouth/src/core/terminal_visualizer.py. .("2*“
-2/ 8(|
-z
-9 9(!
-%2"__id*b
-
-__unknown_file (F*D1
-/src.core.terminal_visualizer.TerminalVisualizer"
-enable_colors*
-4
-5*Î
-4< <(D
-B
-< <(
-reset"__id*'
-
-__unknown_file (	
-\033[0me
-c
-= =(+
-%1"__concat*
-= =(
-
-
-color_code*
-= =("
-
-text*
-=$ =()	
-
-reset"
-= =(+
-
-%1*#
-5: :("
-: :(
-
-text:
-. .(!
-text:
-.# .(2
-
-color_codeB31
-/src.core.terminal_visualizer.TerminalVisualizer

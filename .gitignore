@@ -30,3 +30,4 @@ ENV/
 *.swp
 *.swo
 *~
+.scannerwork/

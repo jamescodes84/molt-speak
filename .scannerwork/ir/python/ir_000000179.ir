@@ -1,36 +1,0 @@
-
-"last_voice"str
-"last_mode"str
-
-0int
-f]"
-        Get last used voice.
-
-        Returns:
-            Tuple of (voice, mode)
-        "strselfh h(	
-tuple"¥'
-%
-o o("#get-field# config:"
- 
-o o()"#array-read#:'
-%
-o+ o(6"#get-field# config:"
- 
-o+ o(C"#array-read#:(
-&
-o o(D	"#unknown-value#Btuple&
-$
-o o(D"
-#is-exact#:	
-Bbool
-
-o o(D"
-#assume#:8
-6
-o o(D"#set-field# __collection_size:	Bint&
-$
-o o(D"#array-add-last#:	&
-$
-o o(D"#array-add-last#:	
-o o(D	*?/Users/albus/open_speak-1/open_mouth/src/config/voice_config.py

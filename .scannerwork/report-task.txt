@@ -1,7 +1,0 @@
-organization=jamescodes84
-projectKey=molt-speak
-serverUrl=https://sonarcloud.io
-serverVersion=8.0.0.79387
-dashboardUrl=https://sonarcloud.io/dashboard?id=molt-speak
-ceTaskId=AZwfqZoCD_NouH4sAmBx
-ceTaskUrl=https://sonarcloud.io/api/ce/task?id=AZwfqZoCD_NouH4sAmBx

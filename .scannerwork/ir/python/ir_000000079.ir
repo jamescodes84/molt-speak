@@ -1,10 +1,0 @@
-
-™"
-        Check if OpenClaw Mouth integration is available.
-
-        Returns:
-            True if status file exists, False otherwise
-        "strselfY Y("B0
-.
-` `(#"#get-field# _file_available:
-` `(#*>/Users/albus/open_speak-1/src/services/mouth_status_monitor.py

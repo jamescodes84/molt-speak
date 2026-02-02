@@ -1,287 +1,0 @@
-
-1.0PythonFrontend"1770057730106*py2.Bœ
-
-
-imports1
-
-extends2
-
-returns3
-
-	has param4
-
-module5
-
-
-class6
-
-function7
-*
-%open_mouth/src/config/voice_config.py9
-
-src.config.voice_config11
-
-
-json12
-
-logging14
-
-datetime16
-
-pathlib18
-
-typing20
-
-src.config.settings22
-)
-#src.config.voice_config.VoiceConfig24
-9
-3src.config.voice_config.VoiceConfig.get_last_volume26
-
-float28
-6
-0src.config.voice_config.VoiceConfig.add_favorite30
-
-
-bool32
-	
-str34
-;
-5src.config.voice_config.VoiceConfig.get_recent_voices36
-
-
-list38
-8
-2src.config.voice_config.VoiceConfig.set_last_voice40
-
-NoneType42
-;
-5src.config.voice_config.VoiceConfig.reset_to_defaults44
-5
-/src.config.voice_config.VoiceConfig.is_favorite46
-:
-4src.config.voice_config.VoiceConfig.add_recent_voice48
-	
-int50
-8
-2src.config.voice_config.VoiceConfig.get_last_voice52
-
-tuple54
-2
-,src.config.voice_config.VoiceConfig.__init__56
-.
-(src.config.voice_config.VoiceConfig.load58
-.
-(src.config.voice_config.VoiceConfig.save60
-9
-3src.config.voice_config.VoiceConfig.remove_favorite62
-7
-1src.config.voice_config.VoiceConfig.get_favorites64
-9
-3src.config.voice_config.VoiceConfig.set_last_volume66
-7
-1src.config.voice_config.VoiceConfig.set_last_rate68
-7
-1src.config.voice_config.VoiceConfig.get_last_rate70J
-
-8
-89 jÂ
- 
-10
-10115 *
-8 (
-
-13
-13125
-
-15
-15145
-
-17
-17165
-
-19
-19185
-
-21
-21205
-
-23
-23225
-
-25
-25246 210
-
-27
-27267 225
-
-29
-29286
-
-31
-31307 225
-
-33
-33326
-
-35
-35346
-
-37
-37367 225
-
-39
-39386
-
-41
-41407 225
-
-43
-43426
-
-45
-45447 225
-
-47
-47467 225
-
-49
-49487 225
-
-51
-51506
-
-53
-53527 225
-
-55
-55546
-
-57
-57567 225
-
-59
-59587 225
-
-61
-61607 225
-
-63
-63627 225
-
-65
-65647 225
-
-67
-67667 225
-
-69
-69687 225
-
-71
-71707 225r®
-
-10131*
-8 (
-
-10151*
-8 (
-
-10171*
-8 (
-
-10191*
-8 (
-
-10211*
-8 ((
-
-10231*
-8	 	(
-
-27293*
-8	 (
-
-31333*
-8„	 „(
-
-31354*
-8„	 „(
-
-31354*
-8„	 „(
-
-37393*
-8ë	 ë(
-
-41433*
-8[	 [(
-
-41354*
-8[	 [(
-
-41354*
-8[	 [(
-
-45433*
-8û	 û(
-
-47333*
-8½	 ½(
-
-47354*
-8½	 ½(
-
-47354*
-8½	 ½(
-
-49433*
-8Î	 Î(
-
-49354*
-8Î	 Î(
-
-49354*
-8Î	 Î(
-
-49514*
-8Î	 Î(
-
-53553*
-8h	 h(
-
-57354*
-8	 (
-
-59333*
-8*	 *(
-
-61333*
-8C	 C(
-
-63333*
-8›	 ›(
-
-63354*
-8›	 ›(
-
-63354*
-8›	 ›(
-
-65393*
-8´	 ´(
-
-67433*
-8z	 z(
-
-67294*
-8z	 z(
-
-69433*
-8q	 q(
-
-69294*
-8q	 q(
-
-71293*
-8v	 v(
