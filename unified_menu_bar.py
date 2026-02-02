@@ -84,13 +84,6 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(rumps.separator)
 
-        # Voice toggle
-        current_voice = self.get_current_voice()
-        # Check for macOS male voices (Alex, Daniel, etc.) or Edge-TTS male voices
-        is_male = current_voice in ("Alex", "Daniel", "Fred", "Tom") or "Guy" in current_voice
-        voice_label = "🔊 Voice: Male" if is_male else "🔊 Voice: Female"
-        self.menu.add(rumps.MenuItem(voice_label, callback=self.on_toggle_voice))
-
         # Honorific toggle (sir/madam)
         current_honorific = self.get_current_honorific()
         honorific_label = f"🎩 Called: {current_honorific.title()}"
