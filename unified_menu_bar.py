@@ -459,7 +459,7 @@ class VoiceLoopMenuBar(rumps.App):
                 # This gives the systems time to start and the user's agent TUI to be ready
                 import threading
                 def delayed_injection():
-                    time.sleep(2.0)  # Wait for systems to be ready
+                    time.sleep(1.0)  # Reduced from 2s
                     self.inject_agent_instructions()
                 threading.Thread(target=delayed_injection, daemon=True).start()
             else:

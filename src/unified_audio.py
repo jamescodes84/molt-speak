@@ -121,11 +121,11 @@ class UnifiedAudioSystem:
         try:
             # Start Mouth first
             self.start_mouth()
-            time.sleep(2)
+            time.sleep(0.5)  # Reduced from 2s - mouth starts fast
 
             # Then start Ears
             self.start_ears()
-            time.sleep(1)
+            time.sleep(0.3)  # Reduced from 1s
 
             logger.info("=" * 60)
             logger.info("Unified Audio System running")
