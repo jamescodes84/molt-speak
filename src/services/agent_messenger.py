@@ -49,33 +49,10 @@ class AgentMessenger:
                 logger.error(f"Instructions file not found: {self.instructions_file}")
                 return False
 
-            instructions = self.instructions_file.read_text()
+            instructions = self.instructions_file.read_text().strip()
 
-            # Create active instructions with metadata
-            timestamp = datetime.now().isoformat()
-            active_content = f"""{'=' * 77}
-VOICE LOOP ACTIVATED - {timestamp}
-{'=' * 77}
-
-The OpenClaw voice loop is now ACTIVE. You can have voice conversations!
-
-SYSTEMS RUNNING:
-  ✅ Integration Coordinator (echo prevention)
-  ✅ Ready for OpenClaw Mouth (voice output)
-  ✅ Ready for OpenClaw Ears (voice input)
-
-READ THE INSTRUCTIONS BELOW CAREFULLY:
-
-{'=' * 77}
-
-{instructions}
-
-{'=' * 77}
-END OF VOICE LOOP INSTRUCTIONS
-{'=' * 77}
-
-This file will be removed when the voice loop shuts down.
-"""
+            # Write instructions as single line (OpenClaw sends each line as separate message)
+            active_content = instructions
 
             # Write to active instructions file
             self.active_instructions_file.write_text(active_content)
@@ -106,27 +83,7 @@ This file will be removed when the voice loop shuts down.
             True if successful, False otherwise
         """
         try:
-            timestamp = datetime.now().isoformat()
-            shutdown_content = f"""{'=' * 77}
-VOICE LOOP DEACTIVATED - {timestamp}
-{'=' * 77}
-
-The OpenClaw voice loop has been SHUT DOWN.
-
-SYSTEMS STOPPED:
-  ❌ Integration Coordinator (stopped)
-  ❌ Voice output may not be available
-  ❌ Voice input may not be available
-
-PREVIOUS INSTRUCTIONS ARE NOW VOID:
-  - You can no longer send voice output via ~/.openclaw/speech_output.txt
-  - You may no longer receive voice input automatically
-  - Echo prevention is no longer active
-
-If the voice loop is restarted, you will receive new instructions.
-
-{'=' * 77}
-"""
+            shutdown_content = "VOICE MODE OFF: Stop writing to speech file. Resume normal text-only responses."
 
             # Write shutdown message
             self.shutdown_message_file.write_text(shutdown_content)
