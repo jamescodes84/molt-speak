@@ -95,6 +95,31 @@ deactivate
 
 echo -e "${GREEN}✓${NC} Virtual environment configured"
 
+# Set up open_mouth and open_ears virtual environments
+echo -e "${YELLOW}! Setting up open_mouth and open_ears environments...${NC}"
+
+for dir in open_mouth open_ears; do
+    if [ -d "$dir" ]; then
+        echo -e "${BLUE}  Setting up $dir...${NC}"
+        cd "$INSTALL_DIR/$dir"
+
+        if [ ! -d "venv" ]; then
+            python3 -m venv venv
+        fi
+
+        if [ -f "requirements.txt" ]; then
+            source venv/bin/activate
+            pip install --quiet --upgrade pip
+            pip install --quiet -r requirements.txt
+            deactivate
+            echo -e "${GREEN}  ✓${NC} $dir configured"
+        fi
+    fi
+done
+
+cd "$INSTALL_DIR"
+echo -e "${GREEN}✓${NC} Sub-environments configured"
+
 # Create molt-speak CLI launcher
 echo -e "${YELLOW}! Creating molt-speak command...${NC}"
 
