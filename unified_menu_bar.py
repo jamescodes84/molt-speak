@@ -482,10 +482,7 @@ tell application "Terminal"
             exit repeat
         end if
     end repeat
-    if not foundIt and (count of windows) > 0 then
-        set targetRef to selected tab of front window
-        set foundIt to true
-    end if
+    -- No fallback: only inject into explicitly matched window
 
     -- Send text directly to TUI (like ears does)
     if foundIt then
