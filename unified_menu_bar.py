@@ -751,9 +751,14 @@ if targetApp is "Terminal" then
             set targetTab to selected tab of front window
         end if
 
-        -- Use do script to send text directly (works without focus)
+        -- Activate and paste using keystroke
         if targetTab is not missing value then
-            do script clipboardText in targetTab
+            tell application "Terminal" to activate
+            delay 0.2
+            tell application "System Events"
+                keystroke "v" using command down
+                keystroke return
+            end tell
             set foundIt to true
         end if
     end tell
@@ -773,10 +778,13 @@ else if targetApp is "iTerm2" then
             set targetSession to current session of current tab of current window
         end if
 
-        -- Use write text to send clipboard content (works without focus)
+        -- Activate and paste using keystroke
         if targetSession is not missing value then
-            tell targetSession
-                write text clipboardText
+            tell application "iTerm2" to activate
+            delay 0.2
+            tell application "System Events"
+                keystroke "v" using command down
+                keystroke return
             end tell
             set foundIt to true
         end if
