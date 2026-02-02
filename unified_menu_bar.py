@@ -223,50 +223,13 @@ class VoiceLoopMenuBar(rumps.App):
         voice_menu = rumps.MenuItem("🎤 Voice")
         current_voice = self.get_current_voice()
 
-        # Voice categories
+        # Voice categories - simplified to 4 essential voices
         voice_categories = [
-            ("🇺🇸 American", [
-                ("Samantha", "Female (default)"),
-                ("Alex", "Male (default)"),
-                ("Tom", "Male"),
-                ("Allison", "Female"),
-                ("Ava", "Female (premium)"),
-                ("Zoe", "Female (premium)"),
-                ("Nicky", "Female (premium)"),
-                ("Susan", "Female (premium)"),
-                ("Evan", "Male (premium)"),
-                ("Nathan", "Male (premium)"),
-            ]),
-            ("🇬🇧 British", [
-                ("Daniel", "Male"),
-                ("Kate", "Female"),
-                ("Oliver", "Male (premium)"),
-                ("Serena", "Female (premium)"),
-                ("Stephanie", "Female (premium)"),
-            ]),
-            ("🇦🇺 Australian", [
-                ("Karen", "Female"),
-                ("Lee", "Male (premium)"),
-            ]),
-            ("🇮🇪 Irish", [
-                ("Moira", "Female"),
-            ]),
-            ("🇿🇦 South African", [
-                ("Tessa", "Female"),
-            ]),
-            ("🇮🇳 Indian", [
-                ("Rishi", "Male"),
-                ("Veena", "Female (premium)"),
-            ]),
-            ("🌍 Other English", [
-                ("Fiona", "Scottish female"),
-                ("Martha", "Female"),
-            ]),
-            ("☁️ Siri Voices", [
-                ("Siri (Voice 1)", "Siri female"),
-                ("Siri (Voice 2)", "Siri male"),
-                ("Siri (Voice 3)", "Siri female alt"),
-                ("Siri (Voice 4)", "Siri male alt"),
+            ("🎙️ Voices", [
+                ("en-US-JennyNeural", "American female"),
+                ("en-US-GuyNeural", "American male"),
+                ("en-GB-SoniaNeural", "British female"),
+                ("en-GB-RyanNeural", "British male"),
             ]),
         ]
 
@@ -715,16 +678,19 @@ end tell'''
         try:
             # Copy instruction to clipboard
             subprocess.run(['pbcopy'], input=instruction.encode(), check=True)
-            logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
+            logger.info(f"Copied instruction to clipboard, looking for window pattern: {window_pattern}")
 
-            # AppleScript: Use terminal-specific commands that work without focus
+            # AppleScript: Try Terminal first, then iTerm2, paste, then restore focus
             applescript = f'''
--- Find target terminal and inject text without changing focus
+-- Save the currently active app to restore later
+set previousApp to ""
+tell application "System Events"
+    set previousApp to name of first application process whose frontmost is true
+end tell
+
+-- Try to find the target terminal window
 set targetApp to ""
 set foundIt to false
-
--- Get clipboard content for iTerm2
-set clipboardText to (the clipboard)
 
 -- Check Terminal.app first
 tell application "System Events"
@@ -737,70 +703,55 @@ end tell
 
 if targetApp is "Terminal" then
     tell application "Terminal"
-        -- Find target window by pattern
-        set targetTab to missing value
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                set targetTab to selected tab of w
+                set index of w to 1
+                activate
+                set foundIt to true
                 exit repeat
             end if
         end repeat
-
-        -- If no pattern match, use front window's selected tab
-        if targetTab is missing value and (count of windows) > 0 then
-            set targetTab to selected tab of front window
-        end if
-
-        -- Activate and paste using keystroke
-        if targetTab is not missing value then
-            tell application "Terminal" to activate
-            delay 0.2
-            tell application "System Events"
-                keystroke "v" using {{command down}}
-                keystroke return
-            end tell
+        if not foundIt and (count of windows) > 0 then
+            set index of front window to 1
+            activate
             set foundIt to true
         end if
     end tell
 else if targetApp is "iTerm2" then
     tell application "iTerm2"
-        -- Find target window by pattern
-        set targetSession to missing value
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                set targetSession to current session of current tab of w
+                select w
+                activate
+                set foundIt to true
                 exit repeat
             end if
         end repeat
-
-        -- If no pattern match, use current session
-        if targetSession is missing value and (count of windows) > 0 then
-            set targetSession to current session of current tab of current window
-        end if
-
-        -- Activate and paste using keystroke
-        if targetSession is not missing value then
-            tell application "iTerm2" to activate
-            delay 0.2
-            tell application "System Events"
-                keystroke "v" using {{command down}}
-                keystroke return
-            end tell
+        if not foundIt and (count of windows) > 0 then
+            activate
             set foundIt to true
         end if
     end tell
 end if
 
+-- Paste and enter if we found a window
 if foundIt then
+    delay 0.3
+    tell application "System Events"
+        keystroke "v" using command down
+        delay 0.1
+        keystroke return
+    end tell
+    -- Restore focus to the previous app
+    delay 0.1
+    if previousApp is not "" then
+        tell application previousApp to activate
+    end if
     return "success"
 else
     return "no_terminal_found"
 end if
 '''
-            # Debug: log the actual AppleScript being executed
-            logger.info(f"Generated AppleScript (length: {len(applescript)}):")
-            logger.info(f"AppleScript content:\n{applescript}")
-
             result = subprocess.run(
                 ['osascript', '-e', applescript],
                 capture_output=True,
