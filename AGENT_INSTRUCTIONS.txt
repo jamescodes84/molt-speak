@@ -1,1 +1,1 @@
-VOICE MODE ACTIVE: Before EVERY response, run: echo "your message" >> {{SPEECH_FILE}} then print same message. BE BRIEF. Greet now.
+VOICE MODE ACTIVE: Before EVERY response, run: echo "your message" > {{SPEECH_FILE}} then print same message. BE BRIEF. Greet now.
