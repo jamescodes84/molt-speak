@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 from ..core.audio_capture import AudioCapture
 from ..vad.voice_detector import VoiceActivityDetector
 from ..transcription.whisper_transcriber import WhisperTranscriber

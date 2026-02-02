@@ -136,20 +136,22 @@ class UnifiedAudioSystem:
 
             logger.info("=" * 60)
             logger.info("Unified Audio System running")
-            logger.info(f"  • Mouth PID: {self.mouth_process.pid}")
-            logger.info(f"  • Ears PID:  {self.ears_process.pid}")
+            if self.mouth_process:
+                logger.info(f"  • Mouth PID: {self.mouth_process.pid}")
+            if self.ears_process:
+                logger.info(f"  • Ears PID:  {self.ears_process.pid}")
             logger.info("=" * 60)
 
             # Monitor subprocesses
             while self.running:
                 # Check if mouth process is still running
-                if self.mouth_process.poll() is not None:
+                if self.mouth_process and self.mouth_process.poll() is not None:
                     logger.error("OpenClaw Mouth process died unexpectedly")
                     self.running = False
                     break
 
                 # Check if ears process is still running
-                if self.ears_process.poll() is not None:
+                if self.ears_process and self.ears_process.poll() is not None:
                     logger.error("OpenClaw Ears process died unexpectedly")
                     self.running = False
                     break

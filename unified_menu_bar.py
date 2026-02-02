@@ -27,7 +27,7 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        super().__init__("🔴🎙️", quit_button=None)  # Start with red (inactive)
+        super().__init__("🔴🎙️", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
