@@ -1,6 +1,20 @@
-# OpenClaw Voice Loop Integration
+# OpenSpeak Voice Loop System
 
-Standalone coordinator service that integrates OpenClaw Ears (voice input) and OpenClaw Mouth (TTS output) to prevent echo and feedback in full voice conversations.
+Complete voice interaction system for AI agents on macOS, featuring voice input (Ears), text-to-speech output (Mouth), and intelligent echo prevention.
+
+## 🚀 Quick Install (One-Line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jamescodes84/open_speak/main/install.sh | bash
+```
+
+After installation:
+```bash
+molt-speak start   # Start the voice loop
+molt-speak menu    # Open voice selection
+molt-speak status  # Check status
+molt-speak stop    # Stop the voice loop
+```
 
 ## Overview
 
