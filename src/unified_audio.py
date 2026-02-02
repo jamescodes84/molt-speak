@@ -28,9 +28,27 @@ class UnifiedAudioSystem:
         self.mouth_process = None
         self.ears_process = None
         self.running = False
-        self.project_root = Path(__file__).parent.parent
+        self.project_root = Path(__file__).parent.parent.resolve()
+
+        # Use project-local directories
+        self.runtime_dir = self.project_root / "runtime"
+        self.logs_dir = self.project_root / "logs"
+        self.runtime_dir.mkdir(exist_ok=True)
+        self.logs_dir.mkdir(exist_ok=True)
 
         logger.info("Initializing Unified Audio System")
+
+    def get_voice_setting(self):
+        """Read voice setting from config file."""
+        voice_file = self.runtime_dir / "voice.conf"
+        if voice_file.exists():
+            try:
+                voice = voice_file.read_text().strip()
+                if voice:
+                    return voice
+            except Exception:
+                pass
+        return "Samantha"  # Default voice
 
     def start_mouth(self):
         """Start OpenClaw Mouth (TTS output) subprocess."""
@@ -41,14 +59,16 @@ class UnifiedAudioSystem:
         # Use venv python if available, otherwise system python
         python_cmd = str(mouth_venv) if mouth_venv.exists() else "python3"
 
-        # Open log file for Mouth
-        mouth_log = Path.home() / ".openclaw" / "logs" / "mouth.log"
-        mouth_log.parent.mkdir(parents=True, exist_ok=True)
+        # Get voice setting
+        voice = self.get_voice_setting()
+
+        # Open log file for Mouth (project-local)
+        mouth_log = self.logs_dir / "mouth.log"
         mouth_log_file = open(mouth_log, "a")
 
-        logger.info("Starting OpenClaw Mouth (TTS)...")
+        logger.info(f"Starting OpenClaw Mouth (TTS with voice: {voice})...")
         self.mouth_process = subprocess.Popen(
-            [python_cmd, str(mouth_main)],
+            [python_cmd, str(mouth_main), "--local", "--voice", voice],
             cwd=str(mouth_dir),
             stdout=mouth_log_file,
             stderr=subprocess.STDOUT
@@ -64,9 +84,8 @@ class UnifiedAudioSystem:
         # Use venv python if available, otherwise system python
         python_cmd = str(ears_venv) if ears_venv.exists() else "python3"
 
-        # Open log file for Ears
-        ears_log = Path.home() / ".openclaw" / "logs" / "ears.log"
-        ears_log.parent.mkdir(parents=True, exist_ok=True)
+        # Open log file for Ears (project-local)
+        ears_log = self.logs_dir / "ears.log"
         ears_log_file = open(ears_log, "a")
 
         logger.info("Starting OpenClaw Ears (voice input)...")
@@ -83,6 +102,15 @@ class UnifiedAudioSystem:
         logger.info("=" * 60)
         logger.info("Starting Unified Audio System")
         logger.info("=" * 60)
+
+        # Clear speech output file to start fresh (project-local)
+        # The text monitor only reads NEW content after startup
+        speech_file = self.runtime_dir / "speech_output.txt"
+        try:
+            speech_file.write_text("")
+            logger.info(f"Cleared speech output file: {speech_file}")
+        except Exception as e:
+            logger.warning(f"Could not clear speech file: {e}")
 
         self.running = True
 

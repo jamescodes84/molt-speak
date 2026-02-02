@@ -8,6 +8,11 @@
 # 3. Integration Coordinator (echo prevention)
 #
 
+# Get script directory (project root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNTIME_DIR="$SCRIPT_DIR/runtime"
+LOGS_DIR="$SCRIPT_DIR/logs"
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -60,21 +65,21 @@ stop_process() {
 
 # Stop in reverse order
 echo -e "${BLUE}[1/2]${NC} Stopping Unified Audio System..."
-stop_process "Unified Audio System" ~/.openclaw/audio.pid
+stop_process "Unified Audio System" "$RUNTIME_DIR/audio.pid"
 # Also remove old PID files for compatibility
-rm -f ~/.openclaw/mouth.pid
-rm -f ~/.openclaw/ears.pid
+rm -f "$RUNTIME_DIR/mouth.pid"
+rm -f "$RUNTIME_DIR/ears.pid"
 
 echo ""
 echo -e "${BLUE}[2/2]${NC} Stopping Integration Coordinator..."
-stop_process "Integration Coordinator" ~/.openclaw/integration.pid
+stop_process "Integration Coordinator" "$RUNTIME_DIR/integration.pid"
 
 # Kill any lingering voice-related Python processes
 echo ""
 echo -e "${BLUE}[3/3]${NC} Checking for lingering processes..."
 
 # Find and kill any Python processes in open_ears or open_mouth directories
-LINGERING_PIDS=$(lsof -t +D "$(pwd)/open_ears" 2>/dev/null)
+LINGERING_PIDS=$(lsof -t +D "$SCRIPT_DIR/open_ears" 2>/dev/null)
 if [ ! -z "$LINGERING_PIDS" ]; then
     echo -e "  ${YELLOW}Found lingering open_ears processes, stopping...${NC}"
     echo "$LINGERING_PIDS" | xargs kill -TERM 2>/dev/null
@@ -82,7 +87,7 @@ if [ ! -z "$LINGERING_PIDS" ]; then
     echo "$LINGERING_PIDS" | xargs kill -9 2>/dev/null
 fi
 
-LINGERING_PIDS=$(lsof -t +D "$(pwd)/open_mouth" 2>/dev/null)
+LINGERING_PIDS=$(lsof -t +D "$SCRIPT_DIR/open_mouth" 2>/dev/null)
 if [ ! -z "$LINGERING_PIDS" ]; then
     echo -e "  ${YELLOW}Found lingering open_mouth processes, stopping...${NC}"
     echo "$LINGERING_PIDS" | xargs kill -TERM 2>/dev/null
@@ -100,14 +105,17 @@ if [ ! -z "$VOICE_RESP" ]; then
 fi
 
 # Final sweep: kill any remaining main.py processes in this project
-PROJECT_DIR="$(pwd)"
 for pid in $(pgrep -f "main.py" 2>/dev/null); do
     # Check if process is in our project directory
-    if lsof -p $pid 2>/dev/null | grep -q "$PROJECT_DIR"; then
+    if lsof -p $pid 2>/dev/null | grep -q "$SCRIPT_DIR"; then
         echo -e "  ${YELLOW}Found orphaned main.py process ($pid), stopping...${NC}"
         kill -9 $pid 2>/dev/null
     fi
 done
+
+# Kill any tail processes watching our logs (visualizer windows)
+echo -e "  ${BLUE}Closing visualizer windows...${NC}"
+pkill -f "tail -f.*/open_speak/logs" 2>/dev/null && echo -e "  ${GREEN}✓ Visualizers closed${NC}" || echo -e "  ${YELLOW}No visualizers running${NC}"
 
 echo -e "  ${GREEN}✓ All processes verified stopped${NC}"
 
@@ -115,14 +123,15 @@ echo -e "  ${GREEN}✓ All processes verified stopped${NC}"
 echo ""
 echo -e "${BLUE}Cleaning up...${NC}"
 
-# Remove signal files
-rm -f ~/.openclaw/agent_instructions.active
-rm -f ~/.openclaw/agent_shutdown.signal
-rm -f ~/.openclaw/ears_pause.signal
-rm -f ~/.openclaw/mouth_status.txt
+# Remove signal files (project-local)
+rm -f "$RUNTIME_DIR/agent_instructions.active"
+rm -f "$RUNTIME_DIR/agent_shutdown.signal"
+rm -f "$RUNTIME_DIR/ears_pause.signal"
+rm -f "$RUNTIME_DIR/mouth_status.txt"
+rm -f "$RUNTIME_DIR/ears_status.txt"
 
 # Clear speech output queue to prevent old messages on restart
-: > ~/.openclaw/speech_output.txt
+: > "$RUNTIME_DIR/speech_output.txt"
 
 echo -e "  ${GREEN}✓ Signal files cleaned${NC}"
 echo -e "  ${GREEN}✓ Speech queue cleared${NC}"
@@ -135,6 +144,7 @@ echo -e "${GREEN}║                                                            
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${BLUE}Logs preserved at:${NC}"
-echo "  • ~/.openclaw/logs/integration.log"
-echo "  • ~/.openclaw/logs/audio.log (Mouth + Ears combined)"
+echo "  • $LOGS_DIR/integration.log"
+echo "  • $LOGS_DIR/mouth.log"
+echo "  • $LOGS_DIR/ears.log"
 echo ""

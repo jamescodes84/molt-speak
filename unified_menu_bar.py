@@ -12,8 +12,10 @@ import logging
 import subprocess
 import os
 import signal
+import time
+import atexit
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 import rumps
 
 logging.basicConfig(level=logging.INFO)
@@ -27,19 +29,25 @@ class VoiceLoopMenuBar(rumps.App):
         """Initialize menu bar app."""
         super().__init__("🔴🎙️", quit_button=None)  # Start with red (inactive)
 
-        # Paths
-        self.project_dir = Path(__file__).parent
-        self.openclaw_dir = Path.home() / ".openclaw"
+        # Paths - use project-local directories (resolve to absolute paths)
+        self.project_dir = Path(__file__).parent.resolve()
+        self.runtime_dir = self.project_dir / "runtime"
+        self.logs_dir = self.project_dir / "logs"
 
-        # PID files
-        self.integration_pid_file = self.openclaw_dir / "integration.pid"
-        self.mouth_pid_file = self.openclaw_dir / "mouth.pid"
-        self.ears_pid_file = self.openclaw_dir / "ears.pid"
+        # Ensure directories exist
+        self.runtime_dir.mkdir(exist_ok=True)
+        self.logs_dir.mkdir(exist_ok=True)
+
+        # PID files (in runtime dir)
+        self.integration_pid_file = self.runtime_dir / "integration.pid"
+        self.mouth_pid_file = self.runtime_dir / "mouth.pid"
+        self.ears_pid_file = self.runtime_dir / "ears.pid"
 
         # State
         self.integration_running = False
         self.mouth_running = False
         self.ears_running = False
+        self.initializing = True  # Flag to prevent crashes during startup
 
         # Build initial menu
         self.build_menu()
@@ -48,11 +56,23 @@ class VoiceLoopMenuBar(rumps.App):
         self.timer = rumps.Timer(self.update_status, 2.0)
         self.timer.start()
 
+        # Auto-start voice loop after a short delay using threading
+        import threading
+        def delayed_start():
+            # Must set initializing to False BEFORE calling auto_start
+            # otherwise on_start_all will return early due to the guard
+            self.initializing = False
+            self.auto_start_voice_loop()
+        threading.Timer(1.0, delayed_start).start()
+
         logger.info("Unified Voice Loop Menu Bar initialized")
 
     def build_menu(self):
         """Build the menu structure."""
-        self.menu.clear()
+        try:
+            self.menu.clear()
+        except Exception:
+            return  # Menu not ready yet
 
         # Header - System Status
         all_running = self.integration_running and self.mouth_running and self.ears_running
@@ -69,12 +89,21 @@ class VoiceLoopMenuBar(rumps.App):
 
         int_status = "✅" if self.integration_running else "⚪"
         status_menu.add(rumps.MenuItem(f"{int_status} Integration Coordinator", callback=None))
+        desc = rumps.MenuItem("   Prevents echo/feedback")
+        desc.set_callback(None)
+        status_menu.add(desc)
 
         mouth_status = "✅" if self.mouth_running else "⚪"
         status_menu.add(rumps.MenuItem(f"{mouth_status} OpenClaw Mouth", callback=None))
+        desc = rumps.MenuItem("   Text-to-speech output")
+        desc.set_callback(None)
+        status_menu.add(desc)
 
         ears_status = "✅" if self.ears_running else "⚪"
         status_menu.add(rumps.MenuItem(f"{ears_status} OpenClaw Ears", callback=None))
+        desc = rumps.MenuItem("   Voice input & transcription")
+        desc.set_callback(None)
+        status_menu.add(desc)
 
         self.menu.add(status_menu)
 
@@ -83,8 +112,36 @@ class VoiceLoopMenuBar(rumps.App):
         # Control menu
         if all_running:
             self.menu.add(rumps.MenuItem("⏹️  Stop Voice Loop", callback=self.on_stop_all))
+            help_item = rumps.MenuItem("   Stop all voice systems")
+            help_item.set_callback(None)
+            self.menu.add(help_item)
         else:
             self.menu.add(rumps.MenuItem("▶️  Start Voice Loop", callback=self.on_start_all))
+            help_item = rumps.MenuItem("   Start voice input & output")
+            help_item.set_callback(None)
+            self.menu.add(help_item)
+
+        self.menu.add(rumps.separator)
+
+        # Quick start modes
+        modes_menu = rumps.MenuItem("🎯 Start Mode")
+
+        modes_menu.add(rumps.MenuItem("Both (Full Loop)", callback=self.on_start_all))
+        desc = rumps.MenuItem("   Voice input + output together")
+        desc.set_callback(None)
+        modes_menu.add(desc)
+
+        modes_menu.add(rumps.MenuItem("Mouth Only (TTS)", callback=self.on_start_mouth_only))
+        desc = rumps.MenuItem("   Text-to-speech output only")
+        desc.set_callback(None)
+        modes_menu.add(desc)
+
+        modes_menu.add(rumps.MenuItem("Ears Only (STT)", callback=self.on_start_ears_only))
+        desc = rumps.MenuItem("   Voice input only")
+        desc.set_callback(None)
+        modes_menu.add(desc)
+
+        self.menu.add(modes_menu)
 
         self.menu.add(rumps.separator)
 
@@ -95,16 +152,25 @@ class VoiceLoopMenuBar(rumps.App):
             controls.add(rumps.MenuItem("Stop Integration", callback=self.on_stop_integration))
         else:
             controls.add(rumps.MenuItem("Start Integration", callback=self.on_start_integration))
+        desc = rumps.MenuItem("   Echo prevention coordinator")
+        desc.set_callback(None)
+        controls.add(desc)
 
         if self.mouth_running:
             controls.add(rumps.MenuItem("Stop Mouth", callback=self.on_stop_mouth))
         else:
             controls.add(rumps.MenuItem("Start Mouth", callback=self.on_start_mouth))
+        desc = rumps.MenuItem("   Voice output system")
+        desc.set_callback(None)
+        controls.add(desc)
 
         if self.ears_running:
             controls.add(rumps.MenuItem("Stop Ears", callback=self.on_stop_ears))
         else:
             controls.add(rumps.MenuItem("Start Ears", callback=self.on_start_ears))
+        desc = rumps.MenuItem("   Voice input system")
+        desc.set_callback(None)
+        controls.add(desc)
 
         self.menu.add(controls)
 
@@ -112,42 +178,201 @@ class VoiceLoopMenuBar(rumps.App):
 
         # Logs submenu
         logs_menu = rumps.MenuItem("📋 View Logs")
+
         logs_menu.add(rumps.MenuItem("Integration Log", callback=self.on_view_integration_log))
+        desc = rumps.MenuItem("   Echo prevention coordinator")
+        desc.set_callback(None)
+        logs_menu.add(desc)
+
         logs_menu.add(rumps.MenuItem("Mouth Log", callback=self.on_view_mouth_log))
+        desc = rumps.MenuItem("   Voice output (TTS)")
+        desc.set_callback(None)
+        logs_menu.add(desc)
+
         logs_menu.add(rumps.MenuItem("Ears Log", callback=self.on_view_ears_log))
+        desc = rumps.MenuItem("   Voice input (transcription)")
+        desc.set_callback(None)
+        logs_menu.add(desc)
+
         logs_menu.add(rumps.separator)
         logs_menu.add(rumps.MenuItem("All Logs (Combined)", callback=self.on_view_all_logs))
         self.menu.add(logs_menu)
 
+        # Visualizers submenu
+        viz_menu = rumps.MenuItem("📊 Visualizers")
+
+        viz_menu.add(rumps.MenuItem("Open Ears Visualizer", callback=self.on_open_ears_visualizer))
+        desc = rumps.MenuItem("   See mic input levels")
+        desc.set_callback(None)
+        viz_menu.add(desc)
+
+        viz_menu.add(rumps.MenuItem("Open Mouth Visualizer", callback=self.on_open_mouth_visualizer))
+        desc = rumps.MenuItem("   See TTS output status")
+        desc.set_callback(None)
+        viz_menu.add(desc)
+
+        viz_menu.add(rumps.separator)
+        viz_menu.add(rumps.MenuItem("Open Both Visualizers", callback=self.on_open_both_visualizers))
+        desc = rumps.MenuItem("   Monitor full system")
+        desc.set_callback(None)
+        viz_menu.add(desc)
+
+        self.menu.add(viz_menu)
+
+        # Voice selection submenu
+        voice_menu = rumps.MenuItem("🎤 Voice")
+        current_voice = self.get_current_voice()
+
+        # Voice categories
+        voice_categories = [
+            ("🇺🇸 American", [
+                ("Samantha", "Female (default)"),
+                ("Alex", "Male (default)"),
+                ("Tom", "Male"),
+                ("Allison", "Female"),
+                ("Ava", "Female (premium)"),
+                ("Zoe", "Female (premium)"),
+                ("Nicky", "Female (premium)"),
+                ("Susan", "Female (premium)"),
+                ("Evan", "Male (premium)"),
+                ("Nathan", "Male (premium)"),
+            ]),
+            ("🇬🇧 British", [
+                ("Daniel", "Male"),
+                ("Kate", "Female"),
+                ("Oliver", "Male (premium)"),
+                ("Serena", "Female (premium)"),
+                ("Stephanie", "Female (premium)"),
+            ]),
+            ("🇦🇺 Australian", [
+                ("Karen", "Female"),
+                ("Lee", "Male (premium)"),
+            ]),
+            ("🇮🇪 Irish", [
+                ("Moira", "Female"),
+            ]),
+            ("🇿🇦 South African", [
+                ("Tessa", "Female"),
+            ]),
+            ("🇮🇳 Indian", [
+                ("Rishi", "Male"),
+                ("Veena", "Female (premium)"),
+            ]),
+            ("🌍 Other English", [
+                ("Fiona", "Scottish female"),
+                ("Martha", "Female"),
+            ]),
+            ("☁️ Siri Voices", [
+                ("Siri (Voice 1)", "Siri female"),
+                ("Siri (Voice 2)", "Siri male"),
+                ("Siri (Voice 3)", "Siri female alt"),
+                ("Siri (Voice 4)", "Siri male alt"),
+            ]),
+        ]
+
+        for category_name, voices in voice_categories:
+            # Add category header
+            header = rumps.MenuItem(category_name)
+            header.set_callback(None)
+            voice_menu.add(header)
+
+            for voice_name, description in voices:
+                check = "✓ " if voice_name == current_voice else "   "
+                item = rumps.MenuItem(f"   {check}{voice_name}", callback=lambda s, v=voice_name: self.on_change_voice(v))
+                voice_menu.add(item)
+
+            voice_menu.add(rumps.separator)
+
+        voice_menu.add(rumps.MenuItem("Test Current Voice", callback=self.on_test_voice))
+        voice_menu.add(rumps.MenuItem("List All System Voices", callback=self.on_list_voices))
+
+        self.menu.add(voice_menu)
+
         # Configuration submenu
         config_menu = rumps.MenuItem("⚙️  Configuration")
+
         config_menu.add(rumps.MenuItem("Open Config Directory", callback=self.on_open_config_dir))
+        desc = rumps.MenuItem("   Project runtime folder")
+        desc.set_callback(None)
+        config_menu.add(desc)
+
         config_menu.add(rumps.MenuItem("View Agent Instructions", callback=self.on_view_instructions))
+        desc = rumps.MenuItem("   Voice system usage guide")
+        desc.set_callback(None)
+        config_menu.add(desc)
+
+        config_menu.add(rumps.MenuItem("Inject Instructions to TUI", callback=self.on_inject_instructions))
+        desc = rumps.MenuItem("   Send voice setup to agent")
+        desc.set_callback(None)
+        config_menu.add(desc)
+
         config_menu.add(rumps.MenuItem("Window Targeting Settings", callback=self.on_window_targeting_help))
+        desc = rumps.MenuItem("   Configure terminal detection")
+        desc.set_callback(None)
+        config_menu.add(desc)
+
         self.menu.add(config_menu)
 
         self.menu.add(rumps.separator)
 
         # Quick actions
         self.menu.add(rumps.MenuItem("📁 Open Project Folder", callback=self.on_open_project))
+        desc = rumps.MenuItem("   Open in Finder")
+        desc.set_callback(None)
+        self.menu.add(desc)
+
         self.menu.add(rumps.MenuItem("🔄 Refresh Status", callback=lambda _: self.update_status(None)))
+        desc = rumps.MenuItem("   Update system status")
+        desc.set_callback(None)
+        self.menu.add(desc)
 
         self.menu.add(rumps.separator)
 
         # Setup Instructions
         setup_menu = rumps.MenuItem("📝 Setup")
+
         setup_menu.add(rumps.MenuItem("1️⃣ Copy This Echo Command", callback=self.on_copy_title_command))
+        desc = rumps.MenuItem("   Sets terminal window title")
+        desc.set_callback(None)
+        setup_menu.add(desc)
+
         setup_menu.add(rumps.MenuItem("2️⃣ Paste in Terminal, Start Agent", callback=self.on_show_full_setup))
+        desc = rumps.MenuItem("   Run your agent")
+        desc.set_callback(None)
+        setup_menu.add(desc)
+
         setup_menu.add(rumps.separator)
+
         setup_menu.add(rumps.MenuItem("Show Setup Steps", callback=self.on_show_setup_steps))
+        desc = rumps.MenuItem("   Full setup instructions")
+        desc.set_callback(None)
+        setup_menu.add(desc)
+
         setup_menu.add(rumps.MenuItem("Configure Window Pattern", callback=self.on_configure_pattern))
+        desc = rumps.MenuItem("   Set terminal title pattern")
+        desc.set_callback(None)
+        setup_menu.add(desc)
+
         self.menu.add(setup_menu)
 
         # Help
         help_menu = rumps.MenuItem("❓ Help")
+
         help_menu.add(rumps.MenuItem("Quick Start Guide", callback=self.on_quick_start))
+        desc = rumps.MenuItem("   Get started quickly")
+        desc.set_callback(None)
+        help_menu.add(desc)
+
         help_menu.add(rumps.MenuItem("Window Targeting Docs", callback=self.on_window_targeting_docs))
+        desc = rumps.MenuItem("   Auto terminal detection")
+        desc.set_callback(None)
+        help_menu.add(desc)
+
         help_menu.add(rumps.MenuItem("Troubleshooting", callback=self.on_troubleshooting))
+        desc = rumps.MenuItem("   Fix common issues")
+        desc.set_callback(None)
+        help_menu.add(desc)
+
         self.menu.add(help_menu)
 
         self.menu.add(rumps.separator)
@@ -170,31 +395,49 @@ class VoiceLoopMenuBar(rumps.App):
 
     def update_status(self, sender):
         """Update status of all systems."""
-        integration_was_running = self.integration_running
-        mouth_was_running = self.mouth_running
-        ears_was_running = self.ears_running
+        try:
+            integration_was_running = self.integration_running
+            mouth_was_running = self.mouth_running
+            ears_was_running = self.ears_running
 
-        # Check each system
-        self.integration_running = self.check_process(self.integration_pid_file)
-        self.mouth_running = self.check_process(self.mouth_pid_file)
-        self.ears_running = self.check_process(self.ears_pid_file)
+            # Check each system
+            self.integration_running = self.check_process(self.integration_pid_file)
+            self.mouth_running = self.check_process(self.mouth_pid_file)
+            self.ears_running = self.check_process(self.ears_pid_file)
 
-        # Update title based on status
-        all_running = self.integration_running and self.mouth_running and self.ears_running
+            # Update title based on status
+            all_running = self.integration_running and self.mouth_running and self.ears_running
 
-        if all_running:
-            self.title = "🟢🎙️"  # Green circle for active
+            if all_running:
+                self.title = "🟢🎙️"  # Green circle for active
+            else:
+                self.title = "🔴🎙️"  # Red circle for inactive
+
+            # Rebuild menu if anything changed
+            if (integration_was_running != self.integration_running or
+                mouth_was_running != self.mouth_running or
+                ears_was_running != self.ears_running):
+                self.build_menu()
+        except Exception as e:
+            logger.warning(f"Error updating status: {e}")
+
+    def auto_start_voice_loop(self, sender=None):
+        """Auto-start voice loop on app launch if not already running."""
+        # Check if already running
+        all_running = (self.check_process(self.integration_pid_file) and
+                      self.check_process(self.mouth_pid_file) and
+                      self.check_process(self.ears_pid_file))
+
+        if not all_running:
+            logger.info("Auto-starting voice loop...")
+            self.on_start_all(sender)
         else:
-            self.title = "🔴🎙️"  # Red circle for inactive
-
-        # Rebuild menu if anything changed
-        if (integration_was_running != self.integration_running or
-            mouth_was_running != self.mouth_running or
-            ears_was_running != self.ears_running):
-            self.build_menu()
+            logger.info("Voice loop already running, skipping auto-start")
 
     def on_start_all(self, sender):
         """Start the complete voice loop."""
+        if getattr(self, 'initializing', False):
+            return  # Don't start during initialization
         try:
             logger.info("Starting voice loop...")
 
@@ -208,23 +451,35 @@ class VoiceLoopMenuBar(rumps.App):
             )
 
             if result.returncode == 0:
-                rumps.notification(
-                    "Voice Loop Started",
-                    "",
-                    "All systems are now running"
-                )
+                # Don't show notification to avoid macOS notification spam
+                logger.info("Voice loop started successfully")
                 self.update_status(None)
+
+                # Inject agent instructions after a short delay
+                # This gives the systems time to start and the user's agent TUI to be ready
+                import threading
+                def delayed_injection():
+                    time.sleep(2.0)  # Wait for systems to be ready
+                    self.inject_agent_instructions()
+                threading.Thread(target=delayed_injection, daemon=True).start()
             else:
-                rumps.alert(
-                    "Start Failed",
-                    f"Failed to start voice loop:\n\n{result.stderr}"
-                )
+                logger.error(f"Failed to start voice loop: {result.stderr}")
+                # Only show alert if called from main thread (not auto-start)
+                if sender is not None:
+                    rumps.alert(
+                        "Start Failed",
+                        f"Failed to start voice loop:\n\n{result.stderr}"
+                    )
         except Exception as e:
             logger.error(f"Error starting voice loop: {e}")
-            rumps.alert("Error", f"Failed to start: {e}")
+            # Only show alert if called from main thread (not auto-start)
+            if sender is not None:
+                rumps.alert("Error", f"Failed to start: {e}")
 
     def on_stop_all(self, sender):
         """Stop the complete voice loop."""
+        if getattr(self, 'initializing', False):
+            return  # Don't stop during initialization
         try:
             logger.info("Stopping voice loop...")
 
@@ -239,18 +494,14 @@ class VoiceLoopMenuBar(rumps.App):
 
             if result.returncode == 0:
                 # Clear speech output queue to prevent old messages on restart
-                speech_output = self.openclaw_dir / "speech_output.txt"
+                speech_output = self.runtime_dir / "speech_output.txt"
                 try:
                     speech_output.write_text("")
                     logger.info("Cleared speech output queue")
                 except Exception as e:
                     logger.warning(f"Failed to clear speech queue: {e}")
 
-                rumps.notification(
-                    "Voice Loop Stopped",
-                    "",
-                    "All systems have been shut down"
-                )
+                # Notification removed
                 self.update_status(None)
             else:
                 rumps.alert(
@@ -267,14 +518,41 @@ class VoiceLoopMenuBar(rumps.App):
                              "python main.py")
 
     def on_start_mouth(self, sender):
-        """Start OpenClaw Mouth."""
+        """Start OpenClaw Mouth standalone."""
         self._start_component("mouth", "OpenClaw Mouth",
-                             "cd open_mouth && ./start_speech_system.sh")
+                             "cd open_mouth && python main.py")
 
     def on_start_ears(self, sender):
-        """Start OpenClaw Ears."""
+        """Start OpenClaw Ears standalone."""
         self._start_component("ears", "OpenClaw Ears",
-                             "cd open_ears && ./start_voice_system.sh")
+                             "cd open_ears && python main.py")
+
+    def on_start_mouth_only(self, sender):
+        """Start Mouth only mode (TTS output, no voice input)."""
+        # Stop ears if running
+        if self.ears_running:
+            self._stop_component(self.ears_pid_file, "OpenClaw Ears")
+
+        # Start integration if not running
+        if not self.integration_running:
+            self._start_component("integration", "Integration Coordinator",
+                                 "python main.py")
+
+        # Start mouth
+        self._start_component("mouth", "OpenClaw Mouth",
+                             "cd open_mouth && python main.py")
+        logger.info("Started Mouth-only mode (TTS output)")
+
+    def on_start_ears_only(self, sender):
+        """Start Ears only mode (voice input, no TTS output)."""
+        # Stop mouth if running
+        if self.mouth_running:
+            self._stop_component(self.mouth_pid_file, "OpenClaw Mouth")
+
+        # Start ears
+        self._start_component("ears", "OpenClaw Ears",
+                             "cd open_ears && python main.py")
+        logger.info("Started Ears-only mode (voice input)")
 
     def _start_component(self, name: str, display_name: str, command: str):
         """Start a component."""
@@ -286,7 +564,7 @@ class VoiceLoopMenuBar(rumps.App):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            rumps.notification(f"{display_name} Started", "", f"{display_name} is now running")
+            # Notification removed
             self.update_status(None)
         except Exception as e:
             logger.error(f"Error starting {name}: {e}")
@@ -310,7 +588,7 @@ class VoiceLoopMenuBar(rumps.App):
             if pid_file.exists():
                 pid = int(pid_file.read_text().strip())
                 os.kill(pid, signal.SIGTERM)
-                rumps.notification(f"{display_name} Stopped", "", f"{display_name} has been shut down")
+                # Notification removed
                 self.update_status(None)
             else:
                 rumps.alert("Not Running", f"{display_name} is not currently running")
@@ -320,27 +598,72 @@ class VoiceLoopMenuBar(rumps.App):
 
     def on_view_integration_log(self, sender):
         """View integration log."""
-        self._open_log(self.openclaw_dir / "logs" / "integration.log", "Integration")
+        self._open_log(self.logs_dir / "integration.log", "Integration")
 
     def on_view_mouth_log(self, sender):
         """View mouth log."""
-        self._open_log(self.openclaw_dir / "logs" / "mouth.log", "Mouth")
+        self._open_log(self.logs_dir / "mouth.log", "Mouth")
 
     def on_view_ears_log(self, sender):
         """View ears log."""
-        self._open_log(self.openclaw_dir / "logs" / "ears.log", "Ears")
+        self._open_log(self.logs_dir / "ears.log", "Ears")
 
     def on_view_all_logs(self, sender):
         """View all logs in separate tabs."""
         logs = [
-            (self.openclaw_dir / "logs" / "integration.log", "Integration"),
-            (self.openclaw_dir / "logs" / "mouth.log", "Mouth"),
-            (self.openclaw_dir / "logs" / "ears.log", "Ears")
+            (self.logs_dir / "integration.log", "Integration"),
+            (self.logs_dir / "mouth.log", "Mouth"),
+            (self.logs_dir / "ears.log", "Ears")
         ]
 
         for log_path, name in logs:
             if log_path.exists():
                 self._open_log(log_path, name)
+
+    def on_open_ears_visualizer(self, sender):
+        """Open Ears visualizer in new Terminal window."""
+        if not self.ears_running:
+            rumps.alert("Not Running", "OpenClaw Ears is not currently running.\nStart the voice loop first.")
+            return
+
+        ears_log = self.logs_dir / "ears.log"
+        if not ears_log.exists():
+            rumps.alert("Log Not Found", f"Ears log not found at {ears_log}")
+            return
+
+        # Open Terminal with tail showing the visualizer output
+        cmd = f"tail -f {ears_log}"
+        script = f'''tell application "Terminal"
+    activate
+    do script "{cmd}"
+end tell'''
+        subprocess.run(["osascript", "-e", script])
+        # Notification removed
+
+    def on_open_mouth_visualizer(self, sender):
+        """Open Mouth visualizer in new Terminal window."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "OpenClaw Mouth is not currently running.\nStart the voice loop first.")
+            return
+
+        mouth_log = self.logs_dir / "mouth.log"
+        if not mouth_log.exists():
+            rumps.alert("Log Not Found", f"Mouth log not found at {mouth_log}")
+            return
+
+        # Open Terminal showing mouth status and TTS activity
+        cmd = f"tail -f {mouth_log}"
+        script = f'''tell application "Terminal"
+    activate
+    do script "{cmd}"
+end tell'''
+        subprocess.run(["osascript", "-e", script])
+        # Notification removed
+
+    def on_open_both_visualizers(self, sender):
+        """Open both visualizers."""
+        self.on_open_ears_visualizer(sender)
+        self.on_open_mouth_visualizer(sender)
 
     def _open_log(self, log_path: Path, name: str):
         """Open a log file in Terminal."""
@@ -361,21 +684,239 @@ class VoiceLoopMenuBar(rumps.App):
             logger.error(f"Error opening log: {e}")
             rumps.alert("Error", f"Failed to open log: {e}")
 
+    def inject_agent_instructions(self):
+        """Inject startup instructions into the agent's TUI via clipboard paste."""
+        # Read the full AGENT_INSTRUCTIONS.txt file
+        instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
+        try:
+            instruction = instructions_file.read_text()
+        except Exception as e:
+            logger.error(f"Failed to read AGENT_INSTRUCTIONS.txt: {e}")
+            # Fallback to minimal instruction
+            speech_file = str(self.runtime_dir / "speech_output.txt")
+            instruction = f"VOICE LOOP ACTIVE. Echo responses to: {speech_file}"
+
+        # Read window pattern from open_ears settings
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Copy instruction to clipboard
+            subprocess.run(['pbcopy'], input=instruction.encode(), check=True)
+            logger.info(f"Copied instruction to clipboard, looking for window pattern: {window_pattern}")
+
+            # AppleScript: Try Terminal first, then iTerm2, fall back to frontmost app
+            applescript = f'''
+-- Try to find and activate the target terminal window
+set targetApp to ""
+set foundIt to false
+
+-- Check Terminal.app first
+tell application "System Events"
+    if exists process "Terminal" then
+        set targetApp to "Terminal"
+    else if exists process "iTerm2" then
+        set targetApp to "iTerm2"
+    end if
+end tell
+
+if targetApp is "Terminal" then
+    tell application "Terminal"
+        repeat with w in windows
+            if name of w contains "{window_pattern}" then
+                set index of w to 1
+                activate
+                set foundIt to true
+                exit repeat
+            end if
+        end repeat
+        if not foundIt and (count of windows) > 0 then
+            set index of front window to 1
+            activate
+            set foundIt to true
+        end if
+    end tell
+else if targetApp is "iTerm2" then
+    tell application "iTerm2"
+        repeat with w in windows
+            if name of w contains "{window_pattern}" then
+                select w
+                activate
+                set foundIt to true
+                exit repeat
+            end if
+        end repeat
+        if not foundIt and (count of windows) > 0 then
+            activate
+            set foundIt to true
+        end if
+    end tell
+end if
+
+-- Paste and enter if we found a window
+if foundIt then
+    delay 0.5
+    tell application "System Events"
+        keystroke "v" using command down
+        delay 0.2
+        keystroke return
+    end tell
+    return "success"
+else
+    return "no_terminal_found"
+end if
+'''
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if output == "success":
+                    logger.info("Injected agent instructions via paste")
+                else:
+                    logger.warning(f"Could not find terminal window: {output}")
+            else:
+                logger.warning(f"Failed to inject: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.warning("Timed out trying to inject instructions")
+        except Exception as e:
+            logger.warning(f"Error injecting agent instructions: {e}")
+
     def on_open_config_dir(self, sender):
-        """Open .openclaw directory."""
-        subprocess.run(["open", str(self.openclaw_dir)])
+        """Open project runtime directory."""
+        subprocess.run(["open", str(self.runtime_dir)])
+
+    def get_current_voice(self):
+        """Get the current voice setting."""
+        voice_file = self.runtime_dir / "voice.conf"
+        if voice_file.exists():
+            try:
+                return voice_file.read_text().strip()
+            except Exception:
+                pass
+        return "Samantha"
+
+    def on_change_voice(self, voice_name):
+        """Change the TTS voice."""
+        try:
+            # Save voice setting
+            voice_file = self.runtime_dir / "voice.conf"
+            voice_file.write_text(voice_name)
+            logger.info(f"Voice changed to: {voice_name}")
+
+            # Restart voice loop to apply change
+            if self.mouth_running:
+                rumps.alert(
+                    "Voice Changed",
+                    f"Voice set to {voice_name}.\n\nRestarting voice loop to apply..."
+                )
+                self.on_stop_all(None)
+                time.sleep(1)
+                self.on_start_all(None)
+            else:
+                rumps.alert(
+                    "Voice Changed",
+                    f"Voice set to {voice_name}.\n\nWill be used when voice loop starts."
+                )
+
+            # Rebuild menu to update checkmarks
+            self.build_menu()
+
+        except Exception as e:
+            logger.error(f"Error changing voice: {e}")
+            rumps.alert("Error", f"Failed to change voice: {e}")
+
+    def on_test_voice(self, sender):
+        """Test the current voice."""
+        voice = self.get_current_voice()
+        try:
+            subprocess.run(
+                ["say", "-v", voice, f"Hello, this is the {voice} voice."],
+                check=True
+            )
+        except Exception as e:
+            rumps.alert("Voice Test Failed", f"Could not test voice {voice}: {e}")
+
+    def on_list_voices(self, sender):
+        """List all available system voices."""
+        try:
+            result = subprocess.run(
+                ["say", "-v", "?"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Parse and format voice list
+            voices = []
+            for line in result.stdout.strip().split("\n"):
+                if line.strip():
+                    # Format: "VoiceName    locale    # description"
+                    parts = line.split("#")
+                    name_locale = parts[0].strip() if parts else line
+                    voices.append(name_locale.split()[0] if name_locale else "")
+
+            voice_list = ", ".join(v for v in voices if v)
+            # Copy to clipboard
+            subprocess.run(['pbcopy'], input=voice_list.encode(), check=True)
+            rumps.alert(
+                "Available Voices",
+                f"Found {len(voices)} voices.\n\nVoice names copied to clipboard.\n\nTo download more voices:\nSystem Settings → Accessibility → Spoken Content → System Voice → Manage Voices"
+            )
+        except Exception as e:
+            rumps.alert("Error", f"Failed to list voices: {e}")
 
     def on_view_instructions(self, sender):
-        """View agent instructions."""
-        instructions_file = self.openclaw_dir / "agent_instructions.active"
+        """View agent instructions and copy to clipboard."""
+        instructions_file = self.runtime_dir / "agent_instructions.active"
 
         if instructions_file.exists():
+            # Read instructions
+            instructions = instructions_file.read_text()
+
+            # Copy to clipboard
+            subprocess.run(["pbcopy"], input=instructions.encode())
+
+            # Show instructions in TextEdit
             subprocess.run(["open", "-a", "TextEdit", str(instructions_file)])
+
+            # Notify user
+            rumps.alert(
+                "Instructions Copied!",
+                "Agent instructions have been:\n• Opened in TextEdit\n• Copied to clipboard\n\nPaste into your OpenClaw TUI with Cmd+V"
+            )
         else:
             rumps.alert(
                 "Instructions Not Available",
                 "Agent instructions are created when the voice loop starts.\n\nStart the voice loop to see the instructions."
             )
+
+    def on_inject_instructions(self, sender):
+        """Manually inject agent instructions into TUI."""
+        if not (self.integration_running and self.mouth_running):
+            rumps.alert(
+                "Voice Loop Not Running",
+                "Start the voice loop first before injecting instructions."
+            )
+            return
+
+        self.inject_agent_instructions()
+        rumps.alert(
+            "Instructions Injected",
+            "Voice loop instructions have been sent to the agent TUI.\n\n"
+            "The agent should now know to write responses to:\n"
+            "/Users/albus/Documents/Coding Workspace/open_speak/open_speak/runtime/speech_output.txt"
+        )
 
     def on_window_targeting_help(self, sender):
         """Show window targeting help."""
@@ -405,11 +946,7 @@ See: open_ears/WINDOW_TARGETING.md"""
             process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
             process.communicate(command.encode('utf-8'))
 
-            rumps.notification(
-                "Command Copied",
-                "",
-                "Terminal title command copied to clipboard!\n\nPaste in your agent's terminal."
-            )
+            # Notification removed
 
             # Also show the command in an alert
             rumps.alert(
@@ -547,30 +1084,53 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
 
     def on_quit(self, sender):
         """Quit the menu bar app and stop all voice loop processes."""
-        # Check if voice loop is running
-        any_running = self.integration_running or self.mouth_running or self.ears_running
+        self.on_stop_all(None)
+        force_cleanup()
+        rumps.quit_application()
 
-        if any_running:
-            response = rumps.alert(
-                "Quit Menu Bar App",
-                "The voice loop is currently running.\n\nQuitting will stop all voice systems.",
-                ok="Stop & Quit",
-                cancel="Cancel"
-            )
 
-            if response == 1:  # OK = Stop & Quit
-                self.on_stop_all(None)
-                rumps.quit_application()
-            # else: Cancel, do nothing
-        else:
-            # Nothing running, just quit
-            rumps.quit_application()
+def force_cleanup():
+    """Force kill all voice loop processes on exit."""
+    project_dir = Path(__file__).parent
+
+    # Kill processes by pattern
+    patterns = [
+        "unified_audio.py",
+        "open_mouth/main.py",
+        "open_ears/main.py",
+        "integration_coordinator.py",
+        f"tail -f.*{project_dir}/logs"
+    ]
+
+    for pattern in patterns:
+        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)
+
+    # Also try the stop script as backup
+    stop_script = project_dir / "stop_voice_loop.sh"
+    if stop_script.exists():
+        subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
+
+
+def signal_handler(signum, frame):
+    """Handle termination signals."""
+    logger.info(f"Received signal {signum}, cleaning up...")
+    force_cleanup()
+    os._exit(0)
 
 
 def main():
     """Main entry point."""
-    app = VoiceLoopMenuBar()
-    app.run()
+    # Register cleanup handlers
+    atexit.register(force_cleanup)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        app = VoiceLoopMenuBar()
+        app.run()
+    finally:
+        # Ensure cleanup even if app.run() throws
+        force_cleanup()
 
 
 if __name__ == "__main__":

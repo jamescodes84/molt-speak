@@ -21,6 +21,11 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Use project-local directories (NOT ~/.openclaw)
+RUNTIME_DIR="$SCRIPT_DIR/runtime"
+LOGS_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$RUNTIME_DIR" "$LOGS_DIR"
+
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                                                            ║${NC}"
 echo -e "${GREEN}║        OpenClaw Voice Loop - Complete System Startup       ║${NC}"
@@ -63,9 +68,6 @@ check_process() {
     return 1
 }
 
-# Create logs directory
-mkdir -p ~/.openclaw/logs
-
 # 1. Start Integration Coordinator
 echo -e "${YELLOW}[1/3]${NC} Starting Integration Coordinator..."
 if [ ! -d "venv" ]; then
@@ -77,7 +79,7 @@ else
     source venv/bin/activate
 fi
 
-nohup python main.py > ~/.openclaw/logs/integration.log 2>&1 &
+nohup python main.py > "$LOGS_DIR/integration.log" 2>&1 &
 INTEGRATION_PID=$!
 echo "      PID: $INTEGRATION_PID"
 sleep 2
@@ -86,7 +88,7 @@ if ps -p $INTEGRATION_PID > /dev/null; then
     echo -e "      ${GREEN}✓ Integration Coordinator started${NC}"
 else
     echo -e "      ${RED}✗ Failed to start Integration Coordinator${NC}"
-    echo "      Check log: ~/.openclaw/logs/integration.log"
+    echo "      Check log: $LOGS_DIR/integration.log"
     exit 1
 fi
 
@@ -100,7 +102,7 @@ if [ -d "venv" ]; then
 fi
 
 # Start unified audio system
-nohup python src/unified_audio.py > ~/.openclaw/logs/audio.log 2>&1 &
+nohup python src/unified_audio.py > "$LOGS_DIR/audio.log" 2>&1 &
 AUDIO_PID=$!
 echo "      PID: $AUDIO_PID"
 sleep 3
@@ -110,16 +112,20 @@ if ps -p $AUDIO_PID > /dev/null; then
     echo "      ${BLUE}  (Mouth + Ears running in single process)${NC}"
 else
     echo -e "      ${RED}✗ Failed to start Unified Audio System${NC}"
-    echo "      Check log: ~/.openclaw/logs/audio.log"
+    echo "      Check log: $LOGS_DIR/audio.log"
     exit 1
 fi
 
-# Save PIDs for shutdown script
-echo "$INTEGRATION_PID" > ~/.openclaw/integration.pid
-echo "$AUDIO_PID" > ~/.openclaw/audio.pid
+# Save PIDs for shutdown script (in project runtime directory)
+echo "$INTEGRATION_PID" > "$RUNTIME_DIR/integration.pid"
+echo "$AUDIO_PID" > "$RUNTIME_DIR/audio.pid"
 # Keep old PID files for compatibility
-echo "$AUDIO_PID" > ~/.openclaw/mouth.pid
-echo "$AUDIO_PID" > ~/.openclaw/ears.pid
+echo "$AUDIO_PID" > "$RUNTIME_DIR/mouth.pid"
+echo "$AUDIO_PID" > "$RUNTIME_DIR/ears.pid"
+
+# Create simple symlink for agent to use (no spaces in path)
+ln -sf "$RUNTIME_DIR/speech_output.txt" /tmp/speak.txt
+echo -e "      ${GREEN}✓ Created /tmp/speak.txt symlink${NC}"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -134,11 +140,11 @@ echo "  • Unified Audio System    (PID: $AUDIO_PID)"
 echo "    ${BLUE}↳ OpenClaw Mouth + Ears (single process)${NC}"
 echo ""
 echo -e "${BLUE}Logs:${NC}"
-echo "  • Integration: tail -f ~/.openclaw/logs/integration.log"
-echo "  • Audio:       tail -f ~/.openclaw/logs/audio.log"
+echo "  • Integration: tail -f $LOGS_DIR/integration.log"
+echo "  • Audio:       tail -f $LOGS_DIR/audio.log"
 echo ""
 echo -e "${BLUE}Agent Instructions:${NC}"
-echo "  • Check: cat ~/.openclaw/agent_instructions.active"
+echo "  • Check: cat $SCRIPT_DIR/AGENT_INSTRUCTIONS.txt"
 echo ""
 echo -e "${GREEN}🎯 Intelligent Window Targeting:${NC}"
 echo "  • OpenClaw Ears automatically finds your terminal"
