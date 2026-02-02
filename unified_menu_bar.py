@@ -686,14 +686,18 @@ end tell'''
 
     def inject_agent_instructions(self):
         """Inject startup instructions into the agent's TUI via clipboard paste."""
+        # Dynamic path to speech output file
+        speech_file = str(self.runtime_dir / "speech_output.txt")
+
         # Read the full AGENT_INSTRUCTIONS.txt file
         instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
         try:
             instruction = instructions_file.read_text()
+            # Replace template placeholder with actual path
+            instruction = instruction.replace("{{SPEECH_FILE}}", speech_file)
         except Exception as e:
             logger.error(f"Failed to read AGENT_INSTRUCTIONS.txt: {e}")
             # Fallback to minimal instruction
-            speech_file = str(self.runtime_dir / "speech_output.txt")
             instruction = f"VOICE LOOP ACTIVE. Echo responses to: {speech_file}"
 
         # Read window pattern from open_ears settings
@@ -713,9 +717,15 @@ end tell'''
             subprocess.run(['pbcopy'], input=instruction.encode(), check=True)
             logger.info(f"Copied instruction to clipboard, looking for window pattern: {window_pattern}")
 
-            # AppleScript: Try Terminal first, then iTerm2, fall back to frontmost app
+            # AppleScript: Try Terminal first, then iTerm2, paste, then restore focus
             applescript = f'''
--- Try to find and activate the target terminal window
+-- Save the currently active app to restore later
+set previousApp to ""
+tell application "System Events"
+    set previousApp to name of first application process whose frontmost is true
+end tell
+
+-- Try to find the target terminal window
 set targetApp to ""
 set foundIt to false
 
@@ -763,12 +773,17 @@ end if
 
 -- Paste and enter if we found a window
 if foundIt then
-    delay 0.5
+    delay 0.3
     tell application "System Events"
         keystroke "v" using command down
-        delay 0.2
+        delay 0.1
         keystroke return
     end tell
+    -- Restore focus to the previous app
+    delay 0.1
+    if previousApp is not "" then
+        tell application previousApp to activate
+    end if
     return "success"
 else
     return "no_terminal_found"
@@ -911,11 +926,12 @@ end if
             return
 
         self.inject_agent_instructions()
+        speech_file = str(self.runtime_dir / "speech_output.txt")
         rumps.alert(
             "Instructions Injected",
-            "Voice loop instructions have been sent to the agent TUI.\n\n"
-            "The agent should now know to write responses to:\n"
-            "/Users/albus/Documents/Coding Workspace/open_speak/open_speak/runtime/speech_output.txt"
+            f"Voice loop instructions have been sent to the agent TUI.\n\n"
+            f"The agent should now know to write responses to:\n"
+            f"{speech_file}"
         )
 
     def on_window_targeting_help(self, sender):
