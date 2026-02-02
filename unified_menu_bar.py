@@ -48,6 +48,7 @@ class VoiceLoopMenuBar(rumps.App):
         self.mouth_running = False
         self.ears_running = False
         self.initializing = True  # Flag to prevent crashes during startup
+        self._current_voice = None  # Cache for current voice selection
 
         # Build initial menu
         self.build_menu()
@@ -84,6 +85,68 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(rumps.separator)
 
+        # Voice selection submenu
+        voice_menu = rumps.MenuItem("🎤 Voice")
+        current_voice = self.get_current_voice()
+
+        # Voice categories
+        voice_categories = [
+            ("🇺🇸 American", [
+                ("Samantha", "Female (default)"),
+                ("Alex", "Male (default)"),
+                ("Tom", "Male"),
+                ("Allison", "Female"),
+                ("Ava", "Female"),
+                ("Zoe", "Female"),
+                ("Nicky", "Female"),
+                ("Susan", "Female"),
+                ("Evan", "Male"),
+                ("Nathan", "Male"),
+            ]),
+            ("🇬🇧 British", [
+                ("Daniel", "Male"),
+                ("Kate", "Female"),
+                ("Oliver", "Male"),
+                ("Serena", "Female"),
+                ("Stephanie", "Female"),
+            ]),
+            ("🇦🇺 Australian", [
+                ("Karen", "Female"),
+                ("Lee", "Male"),
+            ]),
+            ("🇮🇪 Irish", [
+                ("Moira", "Female"),
+            ]),
+            ("🇿🇦 South African", [
+                ("Tessa", "Female"),
+            ]),
+            ("🇮🇳 Indian", [
+                ("Rishi", "Male"),
+                ("Veena", "Female"),
+            ]),
+            ("🌍 Other English", [
+                ("Fiona", "Scottish female"),
+                ("Martha", "Female"),
+            ]),
+        ]
+
+        for category_name, voices in voice_categories:
+            category_menu = rumps.MenuItem(category_name)
+            for voice_name, description in voices:
+                check = "✓ " if voice_name == current_voice else "   "
+                item = rumps.MenuItem(
+                    f"{check}{voice_name} - {description}",
+                    callback=lambda s, v=voice_name: self.on_select_voice(v)
+                )
+                category_menu.add(item)
+            voice_menu.add(category_menu)
+
+        voice_menu.add(rumps.separator)
+        voice_menu.add(rumps.MenuItem("🔊 Test Current Voice", callback=self.on_test_voice))
+        voice_menu.add(rumps.MenuItem("📋 List All System Voices", callback=self.on_list_voices))
+
+        self.menu.add(voice_menu)
+
         # Honorific toggle (sir/madam)
         current_honorific = self.get_current_honorific()
         honorific_label = f"🎩 Called: {current_honorific.title()}"
@@ -94,23 +157,15 @@ class VoiceLoopMenuBar(rumps.App):
         # Quit
         self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
 
-    def on_toggle_voice(self, sender):
-        """Toggle between male and female voice."""
-        current_voice = self.get_current_voice()
-        # Check for macOS male voices (Alex, Daniel, etc.)
-        is_male = current_voice in ("Alex", "Daniel", "Fred", "Tom") or "Guy" in current_voice
-
-        # Toggle to opposite gender (using macOS voice names for --local mode)
-        if is_male:
-            new_voice = "Samantha"  # Female (macOS)
-        else:
-            new_voice = "Alex"  # Male (macOS)
-
-        # Save voice setting immediately
+    def on_select_voice(self, voice_name):
+        """Select a specific voice from the menu."""
         try:
+            # Save voice setting immediately
             voice_file = self.runtime_dir / "voice.conf"
-            voice_file.write_text(new_voice)
-            logger.info(f"Voice toggled to: {new_voice}")
+            voice_file.write_text(voice_name)
+            # Update cached value
+            self._current_voice = voice_name
+            logger.info(f"Voice selected: {voice_name}")
         except Exception as e:
             logger.error(f"Failed to save voice setting: {e}")
             rumps.alert("Error", f"Failed to save voice setting: {e}")
@@ -119,8 +174,12 @@ class VoiceLoopMenuBar(rumps.App):
         # Update menu immediately to show the change
         self.build_menu()
 
-        # Restart voice loop in background if running
+        # Notify user and restart voice loop if running
         if self.mouth_running:
+            rumps.alert(
+                "Voice Changed",
+                f"Voice set to {voice_name}.\n\nRestarting voice loop to apply..."
+            )
             import threading
             def restart_voice_loop():
                 try:
@@ -132,10 +191,15 @@ class VoiceLoopMenuBar(rumps.App):
                     start_script = self.project_dir / "start_voice_loop.sh"
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
-                    logger.info(f"Voice loop restarted with voice: {new_voice}")
+                    logger.info(f"Voice loop restarted with voice: {voice_name}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
+        else:
+            rumps.alert(
+                "Voice Changed",
+                f"Voice set to {voice_name}.\n\nWill be used when voice loop starts."
+            )
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
@@ -621,10 +685,16 @@ end tell
 
     def get_current_voice(self):
         """Get the current voice setting."""
+        # Use cached value if available
+        if self._current_voice is not None:
+            return self._current_voice
+        # Otherwise read from file
         voice_file = self.runtime_dir / "voice.conf"
         if voice_file.exists():
             try:
-                return voice_file.read_text().strip()
+                voice = voice_file.read_text().strip()
+                self._current_voice = voice
+                return voice
             except Exception:
                 pass
         return "Samantha"
@@ -676,6 +746,8 @@ end tell
             # Save voice setting
             voice_file = self.runtime_dir / "voice.conf"
             voice_file.write_text(voice_name)
+            # Update cached value
+            self._current_voice = voice_name
             logger.info(f"Voice changed to: {voice_name}")
 
             # Update menu immediately
