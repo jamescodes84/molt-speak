@@ -733,15 +733,19 @@ if targetApp is "Terminal" then
 else if targetApp is "iTerm2" then
     tell application "iTerm2"
         repeat with w in windows
-            if name of w contains "{window_pattern}" then
-                set targetRef to current session of current tab of w
-                set foundIt to true
-                exit repeat
-            end if
+            tell w
+                if name contains "{window_pattern}" then
+                    set targetRef to current session of current tab
+                    set foundIt to true
+                    exit repeat
+                end if
+            end tell
         end repeat
         if not foundIt and (count of windows) > 0 then
-            set targetRef to current session of current tab of current window
-            set foundIt to true
+            tell current window
+                set targetRef to current session of current tab
+                set foundIt to true
+            end tell
         end if
 
         -- Inject directly using write text (avoids paste warning)
