@@ -9,8 +9,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Installation directory
-INSTALL_DIR="$HOME/.openspeak"
-REPO_URL="https://github.com/jamescodes84/open_speak.git"
+INSTALL_DIR="$HOME/.molt-speak"
+REPO_URL="https://github.com/jamescodes84/molt-speak.git"
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     OpenSpeak Voice Loop Installer     ║${NC}"
@@ -60,14 +60,14 @@ fi
 
 # Clone or update repository
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}! OpenSpeak directory exists. Updating...${NC}"
+    echo -e "${YELLOW}! Molt-Speak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
     git fetch origin
-    git checkout poc
-    git pull origin poc
+    git checkout main
+    git pull origin main
 else
-    echo -e "${YELLOW}! Cloning OpenSpeak repository...${NC}"
-    git clone -b poc "$REPO_URL" "$INSTALL_DIR"
+    echo -e "${YELLOW}! Cloning Molt-Speak repository...${NC}"
+    git clone -b main "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
@@ -153,7 +153,7 @@ LAUNCHER_SCRIPT="/usr/local/bin/molt-speak"
 sudo tee "$LAUNCHER_SCRIPT" > /dev/null << 'EOF'
 #!/bin/bash
 
-INSTALL_DIR="$HOME/.openspeak"
+INSTALL_DIR="$HOME/.molt-speak"
 
 case "$1" in
     start)

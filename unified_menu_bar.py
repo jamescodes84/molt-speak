@@ -113,7 +113,36 @@ class VoiceLoopMenuBar(rumps.App):
         else:
             new_voice = "Alex"  # Male (macOS)
 
-        self.on_change_voice(new_voice)
+        # Save voice setting immediately
+        try:
+            voice_file = self.runtime_dir / "voice.conf"
+            voice_file.write_text(new_voice)
+            logger.info(f"Voice toggled to: {new_voice}")
+        except Exception as e:
+            logger.error(f"Failed to save voice setting: {e}")
+            rumps.alert("Error", f"Failed to save voice setting: {e}")
+            return
+
+        # Update menu immediately to show the change
+        self.build_menu()
+
+        # Restart voice loop in background if running
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    # Stop current voice loop
+                    stop_script = self.project_dir / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    # Start with new voice
+                    start_script = self.project_dir / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with voice: {new_voice}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
@@ -649,30 +678,31 @@ end tell
             rumps.alert("Error", f"Failed to change honorific: {e}")
 
     def on_change_voice(self, voice_name):
-        """Change the TTS voice."""
+        """Change the TTS voice (called programmatically, not from toggle)."""
         try:
             # Save voice setting
             voice_file = self.runtime_dir / "voice.conf"
             voice_file.write_text(voice_name)
             logger.info(f"Voice changed to: {voice_name}")
 
-            # Restart voice loop to apply change
-            if self.mouth_running:
-                rumps.alert(
-                    "Voice Changed",
-                    f"Voice set to {voice_name}.\n\nRestarting voice loop to apply..."
-                )
-                self.on_stop_all(None)
-                time.sleep(1)
-                self.on_start_all(None)
-            else:
-                rumps.alert(
-                    "Voice Changed",
-                    f"Voice set to {voice_name}.\n\nWill be used when voice loop starts."
-                )
-
-            # Rebuild menu to update checkmarks
+            # Update menu immediately
             self.build_menu()
+
+            # Restart voice loop in background if running
+            if self.mouth_running:
+                import threading
+                def restart_voice_loop():
+                    try:
+                        stop_script = self.project_dir / "stop_voice_loop.sh"
+                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        start_script = self.project_dir / "start_voice_loop.sh"
+                        subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        logger.info(f"Voice loop restarted with voice: {voice_name}")
+                    except Exception as e:
+                        logger.error(f"Failed to restart voice loop: {e}")
+                threading.Thread(target=restart_voice_loop, daemon=True).start()
 
         except Exception as e:
             logger.error(f"Error changing voice: {e}")
