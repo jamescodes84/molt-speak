@@ -14,7 +14,7 @@ Or import and use:
 import sys
 from pathlib import Path
 
-SPEECH_FILE = Path.home() / ".openclaw" / "speech_output.txt"
+SPEECH_FILE = Path.home() / ".molt-speak" / "runtime" / "speech_output.txt"
 
 
 def speak(text: str) -> None:

@@ -2,7 +2,7 @@
 # Quick speak command for OpenClaw voice loop
 # Usage: ./speak.sh "Hello, this is a test"
 
-SPEECH_FILE="$HOME/.openclaw/speech_output.txt"
+SPEECH_FILE="$HOME/.molt-speak/runtime/speech_output.txt"
 
 # Ensure directory exists
 mkdir -p "$(dirname "$SPEECH_FILE")"

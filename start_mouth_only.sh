@@ -22,7 +22,7 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 
 # Create logs directory
-mkdir -p ~/.openclaw/logs
+mkdir -p ~/.molt-speak/runtime/logs
 
 # Activate venv
 if [ -d "open_mouth/venv" ]; then
@@ -45,9 +45,9 @@ echo -e "${YELLOW}Starting OpenClaw Mouth...${NC}"
 
 # Start mouth
 cd open_mouth
-nohup python main.py $USE_LOCAL > ~/.openclaw/logs/mouth.log 2>&1 &
+nohup python main.py $USE_LOCAL > ~/.molt-speak/runtime/logs/mouth.log 2>&1 &
 MOUTH_PID=$!
-echo "$MOUTH_PID" > ~/.openclaw/mouth.pid
+echo "$MOUTH_PID" > ~/.molt-speak/runtime/mouth.pid
 
 sleep 2
 
@@ -55,7 +55,7 @@ if ps -p $MOUTH_PID > /dev/null; then
     echo -e "${GREEN}✓ OpenClaw Mouth started (PID: $MOUTH_PID)${NC}"
 else
     echo -e "${RED}✗ Failed to start OpenClaw Mouth${NC}"
-    echo "  Check log: ~/.openclaw/logs/mouth.log"
+    echo "  Check log: ~/.molt-speak/runtime/logs/mouth.log"
     exit 1
 fi
 
@@ -63,10 +63,10 @@ echo ""
 echo -e "${GREEN}Mouth is running!${NC}"
 echo ""
 echo -e "${BLUE}To speak, write text to:${NC}"
-echo "  echo 'Hello world' >> ~/.openclaw/speech_output.txt"
+echo "  echo 'Hello world' >> ~/.molt-speak/runtime/speech_output.txt"
 echo ""
 echo -e "${BLUE}View log:${NC}"
-echo "  tail -f ~/.openclaw/logs/mouth.log"
+echo "  tail -f ~/.molt-speak/runtime/logs/mouth.log"
 echo ""
 echo -e "${BLUE}To stop:${NC}"
 echo "  kill $MOUTH_PID"

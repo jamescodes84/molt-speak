@@ -26,7 +26,7 @@ This integration service monitors OpenClaw Mouth's speaking status and signals O
 ```
 1. OpenClaw Mouth speaks → Updates mouth_status.txt to "SPEAKING"
 2. Integration monitors file → Detects "SPEAKING" status
-3. Creates pause signal file → ~/.openclaw/ears_pause.signal
+3. Creates pause signal file → ~/.molt-speak/runtime/ears_pause.signal
 4. OpenClaw Ears checks signal → Pauses microphone
 5. No echo! 🎉
 6. Mouth finishes → Status changes to "IDLE"
@@ -42,11 +42,11 @@ This integration service monitors OpenClaw Mouth's speaking status and signals O
 │                                                      │
 │  Monitor Thread                                      │
 │    ↓                                                 │
-│  Polls ~/.openclaw/mouth_status.txt (100ms)         │
+│  Polls ~/.molt-speak/runtime/mouth_status.txt (100ms)         │
 │    ↓                                                 │
 │  Detects SPEAKING status                            │
 │    ↓                                                 │
-│  Creates ~/.openclaw/ears_pause.signal              │
+│  Creates ~/.molt-speak/runtime/ears_pause.signal              │
 │    ↓                                                 │
 │  OpenClaw Ears checks signal → Pauses mic           │
 │    ↓                                                 │
@@ -99,7 +99,7 @@ cd open_ears
 **Terminal 4** - Test:
 ```bash
 # Send text to Mouth
-echo "Hello, testing echo prevention" >> ~/.openclaw/speech_output.txt
+echo "Hello, testing echo prevention" >> ~/.molt-speak/runtime/speech_output.txt
 
 # Speak while TTS is playing - no transcription should occur
 # Speak after TTS finishes - transcription should work
@@ -148,7 +148,7 @@ OpenClaw Ears needs to check for the pause signal file:
 
 ```python
 # In open_ears capture loop:
-pause_signal_file = Path.home() / ".openclaw" / "ears_pause.signal"
+pause_signal_file = Path.home() / ".molt-speak" / "runtime" / "ears_pause.signal"
 
 if pause_signal_file.exists():
     # Pause microphone - clear buffer
@@ -161,8 +161,8 @@ if pause_signal_file.exists():
 
 | File | Purpose | Created By | Read By |
 |------|---------|------------|---------|
-| `~/.openclaw/mouth_status.txt` | Mouth speaking status | OpenClaw Mouth | This integration |
-| `~/.openclaw/ears_pause.signal` | Pause microphone signal | This integration | OpenClaw Ears |
+| `~/.molt-speak/runtime/mouth_status.txt` | Mouth speaking status | OpenClaw Mouth | This integration |
+| `~/.molt-speak/runtime/ears_pause.signal` | Pause microphone signal | This integration | OpenClaw Ears |
 
 ## Status File Format
 
@@ -214,12 +214,12 @@ ps aux | grep "main.py"
 **Check pause signal file**:
 ```bash
 # Should appear when Mouth is speaking
-ls -la ~/.openclaw/ears_pause.signal
+ls -la ~/.molt-speak/runtime/ears_pause.signal
 ```
 
 **Check Mouth status file**:
 ```bash
-cat ~/.openclaw/mouth_status.txt
+cat ~/.molt-speak/runtime/mouth_status.txt
 ```
 
 ### Ears not pausing

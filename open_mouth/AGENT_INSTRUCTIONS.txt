@@ -10,7 +10,7 @@ The speech system is already built and working perfectly.
 
 ✅ DO:
   - Use the speech system as-is
-  - Write text to ~/.openclaw/speech_output.txt
+  - Write text to ~/.molt-speak/runtime/speech_output.txt
   - Report issues to the user
   - Read this guide carefully
 
@@ -30,7 +30,7 @@ HOW THE SPEECH SYSTEM WORKS
 OpenClaw Mouth is the OUTPUT companion to OpenClaw Ears (voice INPUT).
 
 Flow:
-  1. You (the agent) write text to ~/.openclaw/speech_output.txt
+  1. You (the agent) write text to ~/.molt-speak/runtime/speech_output.txt
   2. Speech system detects the new text
   3. Text is synthesized to speech using Edge-TTS
   4. Speech plays through the computer's speakers
@@ -40,7 +40,7 @@ It's that simple. Just write text to a file, and it will be spoken.
 
 SPEAKING SIGNAL FOR COORDINATION:
   - The system automatically creates a signal file at:
-    ~/.openclaw/mouth_status.txt
+    ~/.molt-speak/runtime/mouth_status.txt
   - This file indicates when you're speaking (status: SPEAKING, IDLE, etc.)
   - OpenClaw Ears monitors this to pause listening while you speak
   - You don't need to do anything - it's automatic!
@@ -53,7 +53,7 @@ STEP 1: START THE SPEECH SYSTEM
 
 Open a terminal window and run:
 
-    cd /Users/albus/Documents/Coding\ Workspace/open_mouth/open_mouth
+    cd ~/.molt-speak/open_mouth
     ./start_speech_system.sh
 
 You should see a terminal interface showing:
@@ -71,13 +71,13 @@ STEP 2: WRITE TEXT TO SPEAK
 
 To make the system speak, write to the file:
 
-    ~/.openclaw/speech_output.txt
+    ~/.molt-speak/runtime/speech_output.txt
 
 Example in Bash:
-    echo "Hello! How can I help you today?" >> ~/.openclaw/speech_output.txt
+    echo "Hello! How can I help you today?" >> ~/.molt-speak/runtime/speech_output.txt
 
 Example in Python:
-    with open(os.path.expanduser("~/.openclaw/speech_output.txt"), "a") as f:
+    with open(os.path.expanduser("~/.molt-speak/runtime/speech_output.txt"), "a") as f:
         f.write("Hello! How can I help you today?\n")
 
 The speech system monitors this file and automatically speaks any new lines.
@@ -88,9 +88,9 @@ STEP 3: MULTIPLE MESSAGES
 
 You can queue multiple messages by writing multiple lines:
 
-    echo "First message" >> ~/.openclaw/speech_output.txt
-    echo "Second message" >> ~/.openclaw/speech_output.txt
-    echo "Third message" >> ~/.openclaw/speech_output.txt
+    echo "First message" >> ~/.molt-speak/runtime/speech_output.txt
+    echo "Second message" >> ~/.molt-speak/runtime/speech_output.txt
+    echo "Third message" >> ~/.molt-speak/runtime/speech_output.txt
 
 The system will speak them in order.
 
@@ -126,7 +126,7 @@ INTEGRATION PATTERNS
 PATTERN 1: Simple Bash Script
 ------------------------------
 #!/bin/bash
-SPEECH_FILE="$HOME/.openclaw/speech_output.txt"
+SPEECH_FILE="$HOME/.molt-speak/runtime/speech_output.txt"
 
 speak() {
     echo "$1" >> "$SPEECH_FILE"
@@ -143,7 +143,7 @@ from pathlib import Path
 
 def speak(text: str) -> None:
     """Send text to OpenClaw Mouth for TTS."""
-    speech_file = Path.home() / ".openclaw" / "speech_output.txt"
+    speech_file = Path.home() / ".molt-speak/runtime" / "speech_output.txt"
     with open(speech_file, "a") as f:
         f.write(f"{text}\n")
 
@@ -159,7 +159,7 @@ from pathlib import Path
 def speak_safe(text: str) -> bool:
     """Send text to speech system with error handling."""
     try:
-        speech_file = Path.home() / ".openclaw" / "speech_output.txt"
+        speech_file = Path.home() / ".molt-speak/runtime" / "speech_output.txt"
         speech_file.parent.mkdir(exist_ok=True)
 
         with open(speech_file, "a") as f:
@@ -178,7 +178,7 @@ TROUBLESHOOTING
 Problem: Nothing is being spoken
 ---------------------------------
 1. Check if speech system is running (look for terminal window)
-2. Verify file path: ~/.openclaw/speech_output.txt
+2. Verify file path: ~/.molt-speak/runtime/speech_output.txt
 3. Check file permissions
 4. Look at speech system terminal for errors
 
@@ -227,7 +227,7 @@ Optional: Create .env file for custom settings:
 TTS_VOICE=en-US-ChristopherNeural
 TTS_RATE=1.0                    # Speech speed (0.5 to 2.0)
 TTS_VOLUME=1.0                  # Volume (0.0 to 1.0)
-INPUT_FILE=~/.openclaw/speech_output.txt
+INPUT_FILE=~/.molt-speak/runtime/speech_output.txt
 LOG_LEVEL=INFO
 
 Most users don't need to change these.
@@ -257,7 +257,7 @@ FINAL REMINDERS
 =============================================================================
 
 ✅ The speech system is complete and working
-✅ Just write to ~/.openclaw/speech_output.txt
+✅ Just write to ~/.molt-speak/runtime/speech_output.txt
 ✅ One line = one spoken utterance
 ✅ Always append (>>) never overwrite (>)
 ✅ Check the terminal display for status
