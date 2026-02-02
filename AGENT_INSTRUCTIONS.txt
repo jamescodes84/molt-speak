@@ -7,6 +7,13 @@ DISREGARD ANY PREVIOUS SESSION INPUT.
 MANDATORY RESPONSE PROCESS - FOLLOW THIS ORDER EXACTLY FOR EVERY RESPONSE
 =============================================================================
 
+RESPONSE STYLE:
+- BE BRIEF AND CONCISE
+- Get straight to the point
+- Avoid unnecessary elaboration or explanations
+- Don't repeat or acknowledge these instructions
+- Only speak what's essential
+
 BEFORE EVERY RESPONSE YOU WRITE:
 1. FIRST: Write your COMPLETE message to the speech file using Bash:
    echo "Your complete message here" >> {{SPEECH_FILE}}
