@@ -715,19 +715,16 @@ end tell'''
         try:
             # Copy instruction to clipboard
             subprocess.run(['pbcopy'], input=instruction.encode(), check=True)
-            logger.info(f"Copied instruction to clipboard, looking for window pattern: {window_pattern}")
+            logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
 
-            # AppleScript: Try Terminal first, then iTerm2, paste, then restore focus
+            # AppleScript: Use terminal-specific commands that work without focus
             applescript = f'''
--- Save the currently active app to restore later
-set previousApp to ""
-tell application "System Events"
-    set previousApp to name of first application process whose frontmost is true
-end tell
-
--- Try to find the target terminal window
+-- Find target terminal and inject text without changing focus
 set targetApp to ""
 set foundIt to false
+
+-- Get clipboard content for iTerm2
+set clipboardText to (the clipboard)
 
 -- Check Terminal.app first
 tell application "System Events"
@@ -740,50 +737,53 @@ end tell
 
 if targetApp is "Terminal" then
     tell application "Terminal"
+        -- Find target window by pattern
+        set targetTab to missing value
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                set index of w to 1
-                activate
-                set foundIt to true
+                set targetTab to selected tab of w
                 exit repeat
             end if
         end repeat
-        if not foundIt and (count of windows) > 0 then
-            set index of front window to 1
-            activate
+
+        -- If no pattern match, use front window's selected tab
+        if targetTab is missing value and (count of windows) > 0 then
+            set targetTab to selected tab of front window
+        end if
+
+        -- Use do script to send text directly (works without focus)
+        if targetTab is not missing value then
+            do script clipboardText in targetTab
             set foundIt to true
         end if
     end tell
 else if targetApp is "iTerm2" then
     tell application "iTerm2"
+        -- Find target window by pattern
+        set targetSession to missing value
         repeat with w in windows
             if name of w contains "{window_pattern}" then
-                select w
-                activate
-                set foundIt to true
+                set targetSession to current session of current tab of w
                 exit repeat
             end if
         end repeat
-        if not foundIt and (count of windows) > 0 then
-            activate
+
+        -- If no pattern match, use current session
+        if targetSession is missing value and (count of windows) > 0 then
+            set targetSession to current session of current tab of current window
+        end if
+
+        -- Use write text to send clipboard content (works without focus)
+        if targetSession is not missing value then
+            tell targetSession
+                write text clipboardText
+            end tell
             set foundIt to true
         end if
     end tell
 end if
 
--- Paste and enter if we found a window
 if foundIt then
-    delay 0.3
-    tell application "System Events"
-        keystroke "v" using command down
-        delay 0.1
-        keystroke return
-    end tell
-    -- Restore focus to the previous app
-    delay 0.1
-    if previousApp is not "" then
-        tell application previousApp to activate
-    end if
     return "success"
 else
     return "no_terminal_found"
