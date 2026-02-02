@@ -723,7 +723,7 @@ if targetApp is "Terminal" then
 
         -- Inject directly using do script (avoids paste warning)
         if foundIt then
-            do script "cat \\"{temp_path}\\"" in targetRef
+            do script "cat '{temp_path}' && echo" in targetRef
         end if
     end tell
 else if targetApp is "iTerm2" then
@@ -743,7 +743,7 @@ else if targetApp is "iTerm2" then
         -- Inject directly using write text (avoids paste warning)
         if foundIt then
             tell targetRef
-                write text "cat \\"{temp_path}\\""
+                write text "cat '{temp_path}' && echo"
             end tell
         end if
     end tell
