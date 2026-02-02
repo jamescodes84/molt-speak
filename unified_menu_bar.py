@@ -84,8 +84,29 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(rumps.separator)
 
+        # Voice toggle
+        current_voice = self.get_current_voice()
+        is_male = "Guy" in current_voice or "Ryan" in current_voice
+        voice_label = "🔊 Voice: Male" if is_male else "🔊 Voice: Female"
+        self.menu.add(rumps.MenuItem(voice_label, callback=self.on_toggle_voice))
+
+        self.menu.add(rumps.separator)
+
         # Quit
         self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
+
+    def on_toggle_voice(self, sender):
+        """Toggle between male and female voice."""
+        current_voice = self.get_current_voice()
+        is_male = "Guy" in current_voice or "Ryan" in current_voice
+
+        # Toggle to opposite gender
+        if is_male:
+            new_voice = "en-US-JennyNeural"  # Female
+        else:
+            new_voice = "en-US-GuyNeural"  # Male
+
+        self.on_change_voice(new_voice)
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
