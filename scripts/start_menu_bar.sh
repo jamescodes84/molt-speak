@@ -26,27 +26,24 @@ echo -e "${GREEN}║                                                            
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Check if rumps is installed
+# Activate venv first
+if [ -d "venv" ]; then
+    source venv/bin/activate
+else
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+fi
+
+# Check if rumps is installed in the venv
 if ! python3 -c "import rumps" 2>/dev/null; then
     echo -e "${YELLOW}⚠️  rumps library not installed${NC}"
     echo ""
     echo -e "${BLUE}Installing rumps...${NC}"
-
-    # Check if venv exists
-    if [ ! -d "venv" ]; then
-        echo "Creating virtual environment..."
-        python3 -m venv venv
-    fi
-
-    source venv/bin/activate
-    pip install rumps
+    pip install rumps pyobjc-framework-Cocoa
     echo ""
     echo -e "${GREEN}✅ rumps installed${NC}"
-else
-    # Activate venv if it exists
-    if [ -d "venv" ]; then
-        source venv/bin/activate
-    fi
 fi
 
 echo ""
