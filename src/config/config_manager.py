@@ -18,7 +18,11 @@ class ConfigManager:
     # Default configuration values
     DEFAULT_CONFIG = {
         "preferred_voice": "en-US-ChristopherNeural",
-        "user_title": "sir"  # Options: "sir", "madam", or custom name
+        "user_title": "sir",  # Options: "sir", "madam", or custom name
+        "tts_provider": "edge-tts",  # Options: "edge-tts", "elevenlabs"
+        "elevenlabs_api_key": None,
+        "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel (default)
+        "elevenlabs_model": "eleven_turbo_v2_5"  # Turbo for low latency
     }
 
     def __init__(self, config_path: Optional[Path] = None):
@@ -135,3 +139,43 @@ class ConfigManager:
     def user_title(self, title: str) -> None:
         """Set user title setting."""
         self.set("user_title", title)
+
+    @property
+    def tts_provider(self) -> str:
+        """Get TTS provider setting."""
+        return self.get("tts_provider", self.DEFAULT_CONFIG["tts_provider"])
+
+    @tts_provider.setter
+    def tts_provider(self, provider: str) -> None:
+        """Set TTS provider setting."""
+        self.set("tts_provider", provider)
+
+    @property
+    def elevenlabs_api_key(self) -> Optional[str]:
+        """Get ElevenLabs API key."""
+        return self.get("elevenlabs_api_key", self.DEFAULT_CONFIG["elevenlabs_api_key"])
+
+    @elevenlabs_api_key.setter
+    def elevenlabs_api_key(self, api_key: str) -> None:
+        """Set ElevenLabs API key."""
+        self.set("elevenlabs_api_key", api_key)
+
+    @property
+    def elevenlabs_voice_id(self) -> str:
+        """Get ElevenLabs voice ID."""
+        return self.get("elevenlabs_voice_id", self.DEFAULT_CONFIG["elevenlabs_voice_id"])
+
+    @elevenlabs_voice_id.setter
+    def elevenlabs_voice_id(self, voice_id: str) -> None:
+        """Set ElevenLabs voice ID."""
+        self.set("elevenlabs_voice_id", voice_id)
+
+    @property
+    def elevenlabs_model(self) -> str:
+        """Get ElevenLabs model."""
+        return self.get("elevenlabs_model", self.DEFAULT_CONFIG["elevenlabs_model"])
+
+    @elevenlabs_model.setter
+    def elevenlabs_model(self, model: str) -> None:
+        """Set ElevenLabs model."""
+        self.set("elevenlabs_model", model)

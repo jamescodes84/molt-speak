@@ -17,8 +17,10 @@ from ..services.audio_playback import AudioPlayer
 from ..services.ears_status_monitor import EarsStatusMonitor
 from ..services.text_monitor import TextMonitor
 from ..services.tts_service import TTSService
+from ..services.tts_factory import TTSFactory
 from ..utils.openclaw_notifier import OpenClawNotifier
 from ..utils.logging_utils import log_speaking, log_queued, log_error
+from ...src.config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +72,34 @@ class MouthPipeline:
             )
             logger.info("Using LOCAL TTS for instant playback")
         else:
-            self.tts_service = TTSService(
-                voice=self.voice,
-                rate=self.rate,
-                volume=self.volume
-            )
-            logger.info("Using CLOUD TTS (Edge-TTS)")
+            # Load config to determine TTS provider
+            config = ConfigManager()
+            provider = config.tts_provider
+
+            if provider == "elevenlabs":
+                # Create ElevenLabs TTS service
+                api_key = config.elevenlabs_api_key
+                if not api_key:
+                    logger.warning("ElevenLabs API key not configured. Falling back to Edge-TTS. Run 'molt-speak elo' to configure.")
+                    provider = "edge-tts"
+                else:
+                    self.tts_service = TTSFactory.create_tts_service(
+                        provider="elevenlabs",
+                        voice=config.elevenlabs_voice_id,
+                        api_key=api_key,
+                        model=config.elevenlabs_model
+                    )
+                    logger.info(f"Using ELEVENLABS TTS (Voice ID: {config.elevenlabs_voice_id})")
+
+            if provider == "edge-tts":
+                # Create Edge-TTS service
+                self.tts_service = TTSFactory.create_tts_service(
+                    provider="edge-tts",
+                    voice=self.voice,
+                    rate=self.rate,
+                    volume=self.volume
+                )
+                logger.info("Using CLOUD TTS (Edge-TTS)")
 
         self.audio_player = AudioPlayer()
         self.notifier = OpenClawNotifier()
