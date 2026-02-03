@@ -36,13 +36,13 @@ class VoiceLoopMenuBar(rumps.App):
         self.runtime_dir = self.project_dir / "runtime"
         self.logs_dir = self.project_dir / "logs"
 
-        # Speech output directory - standard location for all users
-        self.speech_output_dir = Path.home() / "openclaw-workspace" / "molt-speak"
+        # Speech output directory - use hidden directory in user's home for reliable permissions
+        self.speech_output_dir = Path.home() / ".molt-speak" / "runtime"
 
-        # Ensure directories exist
+        # Ensure directories exist with proper permissions
         self.runtime_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
-        self.speech_output_dir.mkdir(parents=True, exist_ok=True)
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
 
         # PID files (in runtime dir)
         self.integration_pid_file = self.runtime_dir / "integration.pid"

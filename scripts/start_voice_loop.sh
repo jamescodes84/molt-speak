@@ -165,11 +165,13 @@ echo "$AUDIO_PID" > "$RUNTIME_DIR/audio.pid"
 echo "$AUDIO_PID" > "$RUNTIME_DIR/mouth.pid"
 echo "$AUDIO_PID" > "$RUNTIME_DIR/ears.pid"
 
-# Create speech output directory in standard location
-SPEECH_OUTPUT_DIR="$HOME/openclaw-workspace/molt-speak"
+# Create speech output directory - use hidden directory for reliable permissions
+SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
 mkdir -p "$SPEECH_OUTPUT_DIR"
+chmod 755 "$SPEECH_OUTPUT_DIR"
 # Clear speech output file to ensure fresh start
 : > "$SPEECH_OUTPUT_DIR/speech_output.txt"
+chmod 644 "$SPEECH_OUTPUT_DIR/speech_output.txt"
 echo -e "      ${GREEN}✓ Created speech output at $SPEECH_OUTPUT_DIR/speech_output.txt${NC}"
 
 # Create simple symlink for agent to use (no spaces in path)

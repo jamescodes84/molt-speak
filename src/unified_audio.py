@@ -36,9 +36,9 @@ class UnifiedAudioSystem:
         self.runtime_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
 
-        # Speech output directory - standard location for all users
-        self.speech_output_dir = Path.home() / "openclaw-workspace" / "molt-speak"
-        self.speech_output_dir.mkdir(parents=True, exist_ok=True)
+        # Speech output directory - use hidden directory in user's home for reliable permissions
+        self.speech_output_dir = Path.home() / ".molt-speak" / "runtime"
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
 
         logger.info("Initializing Unified Audio System")
 

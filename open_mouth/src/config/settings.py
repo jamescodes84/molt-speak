@@ -18,8 +18,8 @@ DEFAULT_PITCH = float(os.getenv("TTS_PITCH", "0.0"))
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent  # open_speak root
 RUNTIME_DIR = PROJECT_DIR / "runtime"
 
-# Speech output directory - standard location for all users
-SPEECH_OUTPUT_DIR = Path.home() / "openclaw-workspace" / "molt-speak"
+# Speech output directory - use hidden directory in user's home for reliable permissions
+SPEECH_OUTPUT_DIR = Path.home() / ".molt-speak" / "runtime"
 INPUT_FILE = Path(os.getenv("INPUT_FILE", str(SPEECH_OUTPUT_DIR / "speech_output.txt")))
 CONFIG_FILE = SPEECH_OUTPUT_DIR / "molt_speak_config.json"
 MONITOR_INTERVAL = float(os.getenv("MONITOR_INTERVAL", "0.1"))  # Check file every 0.1s
