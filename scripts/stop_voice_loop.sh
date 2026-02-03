@@ -80,7 +80,7 @@ echo ""
 echo -e "${BLUE}[3/3]${NC} Checking for lingering processes..."
 
 # Find and kill any Python processes in open_ears or open_mouth directories
-LINGERING_PIDS=$(lsof -t +D "$SCRIPT_DIR/open_ears" 2>/dev/null)
+LINGERING_PIDS=$(lsof -t +D "$PROJECT_DIR/open_ears" 2>/dev/null)
 if [ ! -z "$LINGERING_PIDS" ]; then
     echo -e "  ${YELLOW}Found lingering open_ears processes, stopping...${NC}"
     echo "$LINGERING_PIDS" | xargs kill -TERM 2>/dev/null
@@ -88,7 +88,7 @@ if [ ! -z "$LINGERING_PIDS" ]; then
     echo "$LINGERING_PIDS" | xargs kill -9 2>/dev/null
 fi
 
-LINGERING_PIDS=$(lsof -t +D "$SCRIPT_DIR/open_mouth" 2>/dev/null)
+LINGERING_PIDS=$(lsof -t +D "$PROJECT_DIR/open_mouth" 2>/dev/null)
 if [ ! -z "$LINGERING_PIDS" ]; then
     echo -e "  ${YELLOW}Found lingering open_mouth processes, stopping...${NC}"
     echo "$LINGERING_PIDS" | xargs kill -TERM 2>/dev/null
@@ -108,7 +108,7 @@ fi
 # Final sweep: kill any remaining main.py processes in this project
 for pid in $(pgrep -f "main.py" 2>/dev/null); do
     # Check if process is in our project directory
-    if lsof -p $pid 2>/dev/null | grep -q "$SCRIPT_DIR"; then
+    if lsof -p $pid 2>/dev/null | grep -q "$PROJECT_DIR"; then
         echo -e "  ${YELLOW}Found orphaned main.py process ($pid), stopping...${NC}"
         kill -9 $pid 2>/dev/null
     fi

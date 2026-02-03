@@ -17,13 +17,15 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 cd "$PROJECT_DIR"
 
+# Use project-local directories
+RUNTIME_DIR="$PROJECT_DIR/runtime"
+LOGS_DIR="$PROJECT_DIR/logs"
+mkdir -p "$RUNTIME_DIR" "$LOGS_DIR"
+
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║         OpenClaw Ears Only - Voice Input                   ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-
-# Create logs directory
-mkdir -p ~/.openclaw/logs
 
 # Activate venv
 if [ -d "open_ears/venv" ]; then
@@ -38,9 +40,9 @@ echo -e "${YELLOW}Starting OpenClaw Ears...${NC}"
 
 # Start ears
 cd open_ears
-nohup python main.py > ~/.openclaw/logs/ears.log 2>&1 &
+nohup python main.py > "$LOGS_DIR/ears.log" 2>&1 &
 EARS_PID=$!
-echo "$EARS_PID" > ~/.openclaw/ears.pid
+echo "$EARS_PID" > "$RUNTIME_DIR/ears.pid"
 
 sleep 3
 
@@ -48,7 +50,7 @@ if ps -p $EARS_PID > /dev/null; then
     echo -e "${GREEN}✓ OpenClaw Ears started (PID: $EARS_PID)${NC}"
 else
     echo -e "${RED}✗ Failed to start OpenClaw Ears${NC}"
-    echo "  Check log: ~/.openclaw/logs/ears.log"
+    echo "  Check log: $LOGS_DIR/ears.log"
     exit 1
 fi
 
@@ -59,7 +61,7 @@ echo -e "${BLUE}Setup your terminal:${NC}"
 echo "  echo -n -e \"\\033]0;OpenClaw Agent\\007\""
 echo ""
 echo -e "${BLUE}View log:${NC}"
-echo "  tail -f ~/.openclaw/logs/ears.log"
+echo "  tail -f $LOGS_DIR/ears.log"
 echo ""
 echo -e "${BLUE}To stop:${NC}"
 echo "  kill $EARS_PID"
