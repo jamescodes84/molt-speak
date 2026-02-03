@@ -14,7 +14,9 @@ Or import and use:
 import sys
 from pathlib import Path
 
-SPEECH_FILE = Path.home() / ".openclaw" / "speech_output.txt"
+# Use project-local runtime directory
+PROJECT_DIR = Path(__file__).parent
+SPEECH_FILE = PROJECT_DIR / "runtime" / "speech_output.txt"
 
 
 def speak(text: str) -> None:

@@ -20,12 +20,15 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE: Optional[str] = os.getenv("LOG_FILE")
 
 # ============================================================================
-# OpenClaw Directories
+# Project Directories (use project-local paths, not ~/.openclaw)
 # ============================================================================
-OPENCLAW_DIR: Path = Path.home() / ".openclaw"
-EARS_OUTPUT_FILE: Path = OPENCLAW_DIR / "voice" / "transcriptions.txt"
-MOUTH_STATUS_FILE: Path = OPENCLAW_DIR / "mouth_status.txt"
-MOUTH_INPUT_FILE: Path = OPENCLAW_DIR / "speech_output.txt"
+PROJECT_DIR: Path = Path(__file__).parent.parent.parent  # molt-speak root
+RUNTIME_DIR: Path = PROJECT_DIR / "runtime"
+RUNTIME_DIR.mkdir(exist_ok=True)
+
+EARS_OUTPUT_FILE: Path = RUNTIME_DIR / "transcriptions.txt"
+MOUTH_STATUS_FILE: Path = RUNTIME_DIR / "mouth_status.txt"
+MOUTH_INPUT_FILE: Path = RUNTIME_DIR / "speech_output.txt"
 
 # ============================================================================
 # Monitoring Configuration
@@ -35,7 +38,7 @@ MOUTH_STATUS_POLL_INTERVAL: float = float(os.getenv("MOUTH_STATUS_POLL_INTERVAL"
 MOUTH_STATUS_DEBOUNCE_MS: int = int(os.getenv("MOUTH_STATUS_DEBOUNCE_MS", "200"))
 
 # Ears pause signal file
-EARS_PAUSE_SIGNAL_FILE: Path = OPENCLAW_DIR / "ears_pause.signal"
+EARS_PAUSE_SIGNAL_FILE: Path = RUNTIME_DIR / "ears_pause.signal"
 
 # ============================================================================
 # Integration Mode

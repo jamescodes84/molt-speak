@@ -53,11 +53,11 @@ class UnifiedAudioSystem:
     def start_mouth(self):
         """Start OpenClaw Mouth (TTS output) subprocess."""
         mouth_dir = self.project_root / "open_mouth"
-        mouth_venv = mouth_dir / "venv" / "bin" / "python"
+        main_venv = self.project_root / "venv" / "bin" / "python"
         mouth_main = mouth_dir / "main.py"
 
-        # Use venv python if available, otherwise system python
-        python_cmd = str(mouth_venv) if mouth_venv.exists() else "python3"
+        # Use main project venv if available, otherwise system python
+        python_cmd = str(main_venv) if main_venv.exists() else "python3"
 
         # Get voice setting
         voice = self.get_voice_setting()
@@ -78,11 +78,11 @@ class UnifiedAudioSystem:
     def start_ears(self):
         """Start OpenClaw Ears (voice input) subprocess."""
         ears_dir = self.project_root / "open_ears"
-        ears_venv = ears_dir / "venv" / "bin" / "python"
+        main_venv = self.project_root / "venv" / "bin" / "python"
         ears_main = ears_dir / "main.py"
 
-        # Use venv python if available, otherwise system python
-        python_cmd = str(ears_venv) if ears_venv.exists() else "python3"
+        # Use main project venv if available, otherwise system python
+        python_cmd = str(main_venv) if main_venv.exists() else "python3"
 
         # Open log file for Ears (project-local)
         ears_log = self.logs_dir / "ears.log"

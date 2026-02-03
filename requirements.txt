@@ -1,7 +1,44 @@
-# OpenClaw Voice Loop Integration
-# Minimal dependencies - uses stdlib for most functionality
+# Molt-Speak Voice Loop - Unified Requirements
+# Single virtual environment for all components (Coordinator, Mouth, Ears)
 
+# ============================================================
 # Environment & Configuration
+# ============================================================
 python-dotenv>=1.0.0
 
-# No other dependencies needed - uses standard library threading, pathlib, time, logging
+# ============================================================
+# Menu Bar App (macOS)
+# ============================================================
+rumps>=0.4.0
+pyobjc-framework-Cocoa>=9.0
+
+# ============================================================
+# Audio Processing (shared by Mouth & Ears)
+# ============================================================
+sounddevice>=0.4.6
+numpy>=1.24.0
+scipy>=1.10.0
+pyaudio>=0.2.13
+
+# ============================================================
+# OpenClaw Mouth (Text-to-Speech)
+# ============================================================
+edge-tts>=6.1.0
+watchdog>=3.0.0
+
+# ============================================================
+# OpenClaw Ears (Speech-to-Text)
+# ============================================================
+openai-whisper>=20230314
+webrtcvad>=2.0.10
+torch>=1.13.0
+
+# ============================================================
+# Optional Dependencies
+# ============================================================
+# pygame>=2.1.0  # Alternative audio playback (uncomment if needed)
+
+# ============================================================
+# Development/Testing
+# ============================================================
+pytest>=7.0.0
