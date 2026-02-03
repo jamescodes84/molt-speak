@@ -89,6 +89,30 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(rumps.separator)
 
+        # TTS Provider selection
+        provider_menu = rumps.MenuItem("🔌 TTS Provider")
+        current_provider = self.config.tts_provider
+
+        edge_check = "✓ " if current_provider == "edge-tts" else "   "
+        elo_check = "✓ " if current_provider == "elevenlabs" else "   "
+
+        provider_menu.add(rumps.MenuItem(
+            f"{edge_check}Edge-TTS (Free)",
+            callback=lambda _: self.on_select_provider("edge-tts")
+        ))
+        provider_menu.add(rumps.MenuItem(
+            f"{elo_check}ElevenLabs (Premium)",
+            callback=lambda _: self.on_select_provider("elevenlabs")
+        ))
+        provider_menu.add(rumps.separator)
+        provider_menu.add(rumps.MenuItem(
+            "⚙️  Configure ElevenLabs...",
+            callback=self.on_configure_elevenlabs
+        ))
+
+        self.menu.add(provider_menu)
+        self.menu.add(rumps.separator)
+
         # Voice selection submenu
         voice_menu = rumps.MenuItem("🎤 Voice")
         current_voice = self.get_current_voice()
@@ -196,6 +220,95 @@ class VoiceLoopMenuBar(rumps.App):
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_select_provider(self, provider: str):
+        """Select TTS provider (edge-tts or elevenlabs)."""
+        try:
+            # Check if ElevenLabs is configured if selecting it
+            if provider == "elevenlabs":
+                if not self.config.elevenlabs_api_key:
+                    rumps.alert(
+                        "ElevenLabs Not Configured",
+                        "Please configure ElevenLabs first using:\n"
+                        "TTS Provider → Configure ElevenLabs"
+                    )
+                    return
+
+            # Save provider setting
+            self.config.tts_provider = provider
+            logger.info(f"TTS provider changed to: {provider}")
+
+            # Update menu
+            self.build_menu()
+
+            # Restart voice loop if running
+            if self.mouth_running:
+                import threading
+                provider_name = "ElevenLabs" if provider == "elevenlabs" else "Edge-TTS"
+
+                def restart_voice_loop():
+                    try:
+                        stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                        subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        logger.info(f"Voice loop restarted with provider: {provider}")
+
+                        # Test the new provider
+                        time.sleep(0.5)
+                        speech_file = self.speech_output_dir / "speech_output.txt"
+                        try:
+                            speech_file.write_text(f"Switched to {provider_name}. Testing voice.")
+                            logger.info("Provider test message written to speech output")
+                        except Exception as e:
+                            logger.error(f"Failed to write provider test message: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to restart voice loop: {e}")
+
+                threading.Thread(target=restart_voice_loop, daemon=True).start()
+            else:
+                rumps.alert(
+                    "Provider Changed",
+                    f"TTS provider changed to {provider}.\n\n"
+                    "Changes will take effect when you start the voice loop."
+                )
+
+        except Exception as e:
+            logger.error(f"Error selecting provider: {e}")
+            rumps.alert("Error", f"Failed to change provider: {e}")
+
+    def on_configure_elevenlabs(self, sender):
+        """Launch ElevenLabs configuration wizard."""
+        try:
+            logger.info("Launching ElevenLabs configuration...")
+
+            # Run the configuration script in a new Terminal window
+            config_script = self.project_dir / "scripts" / "molt-speak-elo.sh"
+
+            if not config_script.exists():
+                rumps.alert(
+                    "Script Not Found",
+                    f"Configuration script not found at:\n{config_script}"
+                )
+                return
+
+            # Open Terminal and run the script
+            applescript = f'''
+                tell application "Terminal"
+                    activate
+                    do script "cd '{self.project_dir}' && ./scripts/molt-speak-elo.sh"
+                end tell
+            '''
+
+            subprocess.run(['osascript', '-e', applescript], check=True)
+
+            logger.info("ElevenLabs configuration launched in Terminal")
+
+        except Exception as e:
+            logger.error(f"Error launching ElevenLabs configuration: {e}")
+            rumps.alert("Error", f"Failed to launch configuration: {e}")
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
