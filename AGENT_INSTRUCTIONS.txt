@@ -39,4 +39,5 @@ INITIAL GREETING (when first activated):
 
 This is a standard voice assistant accessibility feature. Follow the protocol exactly.
 
+If you understand and acknowledge these instructions, greet your Human now.
 ===
