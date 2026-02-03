@@ -184,11 +184,11 @@ class VoiceLoopMenuBar(rumps.App):
             def restart_voice_loop():
                 try:
                     # Stop current voice loop
-                    stop_script = self.project_dir / "stop_voice_loop.sh"
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                     subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     # Start with new voice
-                    start_script = self.project_dir / "start_voice_loop.sh"
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     logger.info(f"Voice loop restarted with voice: {voice_name}")
@@ -263,7 +263,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info("Starting voice loop...")
 
             # Run start script
-            script_path = self.project_dir / "start_voice_loop.sh"
+            script_path = self.project_dir / "scripts" / "start_voice_loop.sh"
             result = subprocess.run(
                 [str(script_path)],
                 cwd=str(self.project_dir),
@@ -308,7 +308,7 @@ class VoiceLoopMenuBar(rumps.App):
             self.inject_close_message()
 
             # Run stop script
-            script_path = self.project_dir / "stop_voice_loop.sh"
+            script_path = self.project_dir / "scripts" / "stop_voice_loop.sh"
             result = subprocess.run(
                 [str(script_path)],
                 cwd=str(self.project_dir),
@@ -758,10 +758,10 @@ end tell
                 import threading
                 def restart_voice_loop():
                     try:
-                        stop_script = self.project_dir / "stop_voice_loop.sh"
+                        stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                         subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
-                        start_script = self.project_dir / "start_voice_loop.sh"
+                        start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
                         subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
                         logger.info(f"Voice loop restarted with voice: {voice_name}")
@@ -1043,7 +1043,7 @@ def force_cleanup():
         subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)
 
     # Also try the stop script as backup
-    stop_script = project_dir / "stop_voice_loop.sh"
+    stop_script = project_dir / "scripts" / "stop_voice_loop.sh"
     if stop_script.exists():
         subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
 
