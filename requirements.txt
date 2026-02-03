@@ -1,7 +1,8 @@
-# OpenClaw Voice Loop Integration
-# Minimal dependencies - uses stdlib for most functionality
+# Molt-Speak Voice Loop Integration
 
 # Environment & Configuration
 python-dotenv>=1.0.0
 
-# No other dependencies needed - uses standard library threading, pathlib, time, logging
+# Menu Bar App (macOS)
+rumps>=0.4.0
+pyobjc-framework-Cocoa>=9.0
