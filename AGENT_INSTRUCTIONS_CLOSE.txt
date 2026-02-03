@@ -1,1 +1,15 @@
-VOICE MODE OFF: Stop writing to speech file. Resume normal text-only responses.
+Molt Speak Offline.
+
+Voice mode is being disabled. Please follow these steps IN ORDER:
+
+1. FIRST, say goodbye by writing "Molt Speak Offline" to the speech file ONE TIME ONLY:
+   ```bash
+   echo "Molt Speak Offline" >> ~/openclaw-workspace/molt-speak/speech_output.txt
+   ```
+
+2. THEN, STOP writing to the speech output file permanently
+3. RESUME normal text-only responses in the chat
+4. DO NOT attempt to use voice commands or bash echo to speech file after step 1
+5. Return to standard conversational mode
+
+After saying "Molt Speak Offline" once, voice integration is inactive. All subsequent responses should be text-based only.

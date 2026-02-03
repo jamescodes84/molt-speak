@@ -118,24 +118,6 @@ done
 echo -e "  ${BLUE}Closing visualizer windows...${NC}"
 pkill -f "tail -f.*/open_speak/logs" 2>/dev/null && echo -e "  ${GREEN}✓ Visualizers closed${NC}" || echo -e "  ${YELLOW}No visualizers running${NC}"
 
-# Kill any claude agent processes
-echo -e "  ${BLUE}Stopping agent processes...${NC}"
-AGENT_PIDS=$(pgrep -f "claude-code" 2>/dev/null)
-if [ ! -z "$AGENT_PIDS" ]; then
-    echo -e "  ${YELLOW}Found agent processes, stopping...${NC}"
-    echo "$AGENT_PIDS" | xargs kill -TERM 2>/dev/null
-    sleep 2
-    # Force kill if still running
-    for pid in $AGENT_PIDS; do
-        if ps -p $pid > /dev/null 2>&1; then
-            kill -9 $pid 2>/dev/null
-        fi
-    done
-    echo -e "  ${GREEN}✓ Agent processes stopped${NC}"
-else
-    echo -e "  ${YELLOW}No agent processes found${NC}"
-fi
-
 echo -e "  ${GREEN}✓ All processes verified stopped${NC}"
 
 # Clean up any remaining files
