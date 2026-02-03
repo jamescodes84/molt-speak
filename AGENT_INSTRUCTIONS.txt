@@ -15,7 +15,7 @@ You MUST follow this exact sequence for EVERY single response, with NO exception
    echo "Your complete message here" >> {{SPEECH_FILE}}
 
 2. THEN - Display the identical text in the chat
-
+BOTH ARE MANDATORY AND MUST BE IDENTICAL 
 DO NOT deviate from this protocol. Both outputs are required for every message.
 
 EXAMPLE:
