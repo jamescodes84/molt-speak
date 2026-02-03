@@ -27,11 +27,13 @@ echo -e "${GREEN}║         OpenClaw Mouth Only - TTS Output                   
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Activate venv
-if [ -d "open_mouth/venv" ]; then
-    source open_mouth/venv/bin/activate
-elif [ -d "venv" ]; then
+# Activate unified venv
+if [ -d "venv" ]; then
     source venv/bin/activate
+else
+    echo -e "${RED}Error: Virtual environment not found${NC}"
+    echo "Please run: molt-speak update"
+    exit 1
 fi
 
 # Parse arguments

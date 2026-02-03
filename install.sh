@@ -74,76 +74,47 @@ fi
 echo -e "${GREEN}✓${NC} Repository ready at $INSTALL_DIR"
 
 # Set up Python virtual environment
-echo -e "${YELLOW}! Setting up Python virtual environment...${NC}"
+echo -e "${YELLOW}! Setting up unified Python virtual environment...${NC}"
 
 # Deactivate any existing venv first
 deactivate 2>/dev/null || true
 
-# Main environment - use absolute paths
+# Remove old separate venvs if they exist (cleanup from old architecture)
+if [ -d "$INSTALL_DIR/open_mouth/venv" ]; then
+    echo -e "${BLUE}  Removing old open_mouth/venv...${NC}"
+    rm -rf "$INSTALL_DIR/open_mouth/venv"
+fi
+if [ -d "$INSTALL_DIR/open_ears/venv" ]; then
+    echo -e "${BLUE}  Removing old open_ears/venv...${NC}"
+    rm -rf "$INSTALL_DIR/open_ears/venv"
+fi
+
+# Create unified environment - use absolute paths
 MAIN_VENV="$INSTALL_DIR/venv"
 if [ ! -d "$MAIN_VENV" ]; then
+    echo -e "${BLUE}  Creating virtual environment...${NC}"
     python3 -m venv "$MAIN_VENV"
 fi
-source "$MAIN_VENV/bin/activate"
-pip install --upgrade pip
 
-# Install dependencies
+source "$MAIN_VENV/bin/activate"
+echo -e "${BLUE}  Upgrading pip...${NC}"
+pip install --upgrade pip > /dev/null 2>&1
+
+# Install all dependencies from unified requirements.txt
 if [ -f "$INSTALL_DIR/requirements.txt" ]; then
-    pip install -r "$INSTALL_DIR/requirements.txt"
+    echo -e "${YELLOW}  Installing dependencies (PyTorch + Whisper - may take 2-5 min)...${NC}"
+    pip install -r "$INSTALL_DIR/requirements.txt" 2>&1 | while IFS= read -r line; do
+        if [[ "$line" =~ "Collecting" ]] || [[ "$line" =~ "Downloading" ]] || [[ "$line" =~ "Installing" ]] || [[ "$line" =~ "Successfully" ]]; then
+            echo "    $line"
+        fi
+    done
 else
     echo -e "${YELLOW}Warning: No requirements.txt found${NC}"
 fi
 
-# Install rumps for menu bar (might not be in requirements.txt)
-pip install rumps 2>/dev/null || true
-
 deactivate
 
-echo -e "${GREEN}✓${NC} Virtual environment configured"
-
-# Set up open_mouth and open_ears virtual environments
-echo -e "${YELLOW}! Setting up open_mouth and open_ears environments...${NC}"
-
-for dir in open_mouth open_ears; do
-    DIR_PATH="$INSTALL_DIR/$dir"
-    VENV_PATH="$DIR_PATH/venv"
-
-    if [ -d "$DIR_PATH" ]; then
-        echo -e "${BLUE}  Setting up $dir...${NC}"
-
-        # Remove existing venv to ensure clean install
-        if [ -d "$VENV_PATH" ]; then
-            echo "    Removing old virtual environment..."
-            rm -rf "$VENV_PATH"
-        fi
-
-        echo "    Creating virtual environment..."
-        python3 -m venv "$VENV_PATH"
-
-        if [ -f "$DIR_PATH/requirements.txt" ]; then
-            source "$VENV_PATH/bin/activate"
-            echo "    Upgrading pip..."
-            pip install --upgrade pip > /dev/null 2>&1
-
-            if [ "$dir" = "open_ears" ]; then
-                echo -e "    ${YELLOW}Installing dependencies (PyTorch + Whisper - 2-5 min)...${NC}"
-            else
-                echo "    Installing dependencies..."
-            fi
-
-            pip install -r "$DIR_PATH/requirements.txt" 2>&1 | while IFS= read -r line; do
-                if [[ "$line" =~ "Collecting" ]] || [[ "$line" =~ "Downloading" ]] || [[ "$line" =~ "Installing" ]]; then
-                    echo "      $line"
-                fi
-            done
-            deactivate
-            echo -e "${GREEN}  ✓${NC} $dir configured"
-        fi
-    fi
-done
-
-cd "$INSTALL_DIR"
-echo -e "${GREEN}✓${NC} Sub-environments configured"
+echo -e "${GREEN}✓${NC} Virtual environment configured with all dependencies"
 
 # Create molt-speak CLI launcher
 echo -e "${YELLOW}! Creating molt-speak command...${NC}"
