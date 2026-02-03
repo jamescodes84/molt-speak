@@ -31,8 +31,8 @@ class VoiceLoopCoordinator:
 
     def __init__(self):
         """Initialize the voice loop coordinator."""
-        # Ensure OpenClaw directory exists
-        settings.OPENCLAW_DIR.mkdir(parents=True, exist_ok=True)
+        # Ensure runtime directory exists
+        settings.RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
         # Pause signal file for Ears
         self.pause_signal_file = settings.EARS_PAUSE_SIGNAL_FILE
@@ -49,7 +49,7 @@ class VoiceLoopCoordinator:
         # Initialize agent messenger
         instructions_file = Path(__file__).parent.parent.parent / "AGENT_INSTRUCTIONS.txt"
         self.messenger = AgentMessenger(
-            openclaw_dir=settings.OPENCLAW_DIR,
+            openclaw_dir=settings.RUNTIME_DIR,
             instructions_file=instructions_file
         )
 
@@ -115,7 +115,7 @@ class VoiceLoopCoordinator:
         logger.info("")
         if self.messenger.send_startup_instructions():
             logger.info("✅ Agent instructions sent")
-            logger.info(f"   Agent should read: {settings.OPENCLAW_DIR}/agent_instructions.active")
+            logger.info(f"   Agent should read: {settings.RUNTIME_DIR}/agent_instructions.active")
         else:
             logger.warning("⚠️  Failed to send agent instructions")
 
@@ -147,7 +147,7 @@ class VoiceLoopCoordinator:
         # Send shutdown message to agent
         if self.messenger.send_shutdown_message():
             logger.info("✅ Agent shutdown notification sent")
-            logger.info(f"   Agent should read: {settings.OPENCLAW_DIR}/agent_shutdown.signal")
+            logger.info(f"   Agent should read: {settings.RUNTIME_DIR}/agent_shutdown.signal")
         else:
             logger.warning("⚠️  Failed to send shutdown notification")
 
