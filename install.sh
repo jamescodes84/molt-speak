@@ -171,8 +171,8 @@ case "$1" in
         cd "$INSTALL_DIR"
 
         # Start menu bar app for voice control
-        if [ -f "start_menu_bar.sh" ]; then
-            ./start_menu_bar.sh
+        if [ -f "scripts/start_menu_bar.sh" ]; then
+            ./scripts/start_menu_bar.sh
         else
             # Fallback: run directly
             source venv/bin/activate
@@ -185,8 +185,8 @@ case "$1" in
         cd "$INSTALL_DIR"
 
         # Use the project's stop script if available
-        if [ -f "stop_voice_loop.sh" ]; then
-            ./stop_voice_loop.sh
+        if [ -f "scripts/stop_voice_loop.sh" ]; then
+            ./scripts/stop_voice_loop.sh
         else
             # Fallback: kill processes
             pkill -f "unified_audio"
@@ -202,8 +202,8 @@ case "$1" in
         cd "$INSTALL_DIR"
 
         # Stop voice loop first
-        if [ -f "stop_voice_loop.sh" ]; then
-            ./stop_voice_loop.sh 2>/dev/null
+        if [ -f "scripts/stop_voice_loop.sh" ]; then
+            ./scripts/stop_voice_loop.sh 2>/dev/null
         else
             pkill -f "unified_audio" 2>/dev/null
             pkill -f "main.py" 2>/dev/null
