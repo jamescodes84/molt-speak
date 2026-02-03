@@ -21,6 +21,7 @@ RUNTIME_DIR = PROJECT_DIR / "runtime"
 # Speech output directory - standard location for all users
 SPEECH_OUTPUT_DIR = Path.home() / "openclaw-workspace" / "molt-speak"
 INPUT_FILE = Path(os.getenv("INPUT_FILE", str(SPEECH_OUTPUT_DIR / "speech_output.txt")))
+CONFIG_FILE = SPEECH_OUTPUT_DIR / "molt_speak_config.json"
 MONITOR_INTERVAL = float(os.getenv("MONITOR_INTERVAL", "0.1"))  # Check file every 0.1s
 
 # Status file for echo prevention coordination
