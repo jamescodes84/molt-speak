@@ -48,11 +48,12 @@ pip install --upgrade pip -q
 pip install -r requirements.txt -q
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
-# Create speech output directory - standard location for all users
-SPEECH_OUTPUT_DIR="$HOME/openclaw-workspace/molt-speak"
+# Create speech output directory in user's home
+SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
 if [ ! -d "$SPEECH_OUTPUT_DIR" ]; then
     echo -e "${YELLOW}Creating $SPEECH_OUTPUT_DIR...${NC}"
     mkdir -p "$SPEECH_OUTPUT_DIR"
+    chmod 755 "$SPEECH_OUTPUT_DIR"
     echo -e "${GREEN}✓ Directory created${NC}"
 fi
 
@@ -61,6 +62,7 @@ INPUT_FILE="$SPEECH_OUTPUT_DIR/speech_output.txt"
 if [ ! -f "$INPUT_FILE" ]; then
     echo -e "${YELLOW}Creating input file...${NC}"
     touch "$INPUT_FILE"
+    chmod 644 "$INPUT_FILE"
     echo -e "${GREEN}✓ Input file created at $INPUT_FILE${NC}"
 fi
 

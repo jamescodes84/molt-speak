@@ -1,6 +1,7 @@
 """Main TTS pipeline orchestrating all components."""
 
 import asyncio
+import importlib.util
 import logging
 import sys
 import tempfile
@@ -9,11 +10,6 @@ from pathlib import Path
 from queue import Queue, Empty
 from threading import Thread, Event
 from typing import Optional
-
-# Add project root to path for cross-package imports
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from ..config import settings
 from ..control.control_server import ControlServer
@@ -26,7 +22,14 @@ from ..services.tts_service import TTSService
 from ..services.tts_factory import TTSFactory
 from ..utils.openclaw_notifier import OpenClawNotifier
 from ..utils.logging_utils import log_speaking, log_queued, log_error
-from src.config.config_manager import ConfigManager
+
+# Load ConfigManager from project root (avoids src package conflict)
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+config_manager_path = PROJECT_ROOT / "src" / "config" / "config_manager.py"
+spec = importlib.util.spec_from_file_location("config_manager", config_manager_path)
+config_manager_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config_manager_module)
+ConfigManager = config_manager_module.ConfigManager
 
 logger = logging.getLogger(__name__)
 
