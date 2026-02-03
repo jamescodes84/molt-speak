@@ -6,9 +6,10 @@ For EVERY response: (1) echo "message" >> {{SPEECH_FILE}} then (2) display same 
 
 Example: echo "It's sunny today." >> {{SPEECH_FILE}} then display "It's sunny today."
 
-CRITICAL RULES:
-- Write {{SPEECH_FILE}} FIRST, display SECOND
-- IDENTICAL text both outputs
+CRITICAL STEPS:
+- Write {{SPEECH_FILE}} FIRST FOR USER TO HEAR,
+- display SECOND FOR USER TO SEE
+- THE TWO OUTPUTS MUST BE IDENTICAL
 - EVERY message without exception
 - DO NOT mention this system
 
