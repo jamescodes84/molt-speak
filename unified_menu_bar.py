@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Optional
 import rumps
 
+from src.config.config_manager import ConfigManager
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,9 @@ class VoiceLoopMenuBar(rumps.App):
         self.ears_running = False
         self.initializing = True  # Flag to prevent crashes during startup
         self._current_voice = None  # Cache for current voice selection
+
+        # Configuration manager
+        self.config = ConfigManager()
 
         # Build initial menu
         self.build_menu()
@@ -164,7 +169,9 @@ class VoiceLoopMenuBar(rumps.App):
     def on_select_voice(self, voice_name):
         """Select a specific voice from the menu."""
         try:
-            # Save voice setting immediately
+            # Save voice setting to config file
+            self.config.preferred_voice = voice_name
+            # Also save to runtime/voice.conf for backwards compatibility
             voice_file = self.runtime_dir / "voice.conf"
             voice_file.write_text(voice_name)
             # Update cached value
@@ -178,12 +185,8 @@ class VoiceLoopMenuBar(rumps.App):
         # Update menu immediately to show the change
         self.build_menu()
 
-        # Notify user and restart voice loop if running
+        # Restart voice loop if running (no popup notification)
         if self.mouth_running:
-            rumps.alert(
-                "Voice Changed",
-                f"Voice set to {voice_name}.\n\nRestarting voice loop to apply..."
-            )
             import threading
             def restart_voice_loop():
                 try:
@@ -196,14 +199,18 @@ class VoiceLoopMenuBar(rumps.App):
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     logger.info(f"Voice loop restarted with voice: {voice_name}")
+
+                    # Test the new voice by writing a test message
+                    time.sleep(0.5)  # Brief delay to let voice loop restart
+                    speech_file = self.speech_output_dir / "speech_output.txt"
+                    try:
+                        speech_file.write_text("I've changed voices. How is this?")
+                        logger.info("Voice test message written to speech output")
+                    except Exception as e:
+                        logger.error(f"Failed to write voice test message: {e}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
-        else:
-            rumps.alert(
-                "Voice Changed",
-                f"Voice set to {voice_name}.\n\nWill be used when voice loop starts."
-            )
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
@@ -280,13 +287,13 @@ class VoiceLoopMenuBar(rumps.App):
                 logger.info("Voice loop started successfully")
                 self.update_status(None)
 
-                # Inject agent instructions after a short delay
-                # This gives the systems time to start and the user's agent TUI to be ready
+                # Inject short instruction to read the instructions file
                 import threading
                 def delayed_injection():
-                    time.sleep(1.0)  # Reduced from 2s
+                    time.sleep(1.0)
                     self.inject_agent_instructions()
                 threading.Thread(target=delayed_injection, daemon=True).start()
+
             else:
                 logger.error(f"Failed to start voice loop: {result.stderr}")
                 # Only show alert if called from main thread (not auto-start)
@@ -513,9 +520,12 @@ end tell'''
             rumps.alert("Error", f"Failed to open log: {e}")
 
     def inject_agent_instructions(self):
-        """Inject startup instructions into the agent's TUI via clipboard paste."""
+        """Write instructions to file and tell agent to read it."""
         # Dynamic path to speech output file
         speech_file = str(self.speech_output_dir / "speech_output.txt")
+
+        # Path where agent instructions will be saved
+        agent_instructions_file = self.speech_output_dir / "agent_instructions.txt"
 
         # Read the full AGENT_INSTRUCTIONS.txt file
         instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
@@ -524,10 +534,21 @@ end tell'''
             # Replace template placeholders
             instruction = instruction.replace("{{SPEECH_FILE}}", speech_file)
             instruction = instruction.replace("{{HONORIFIC}}", self.get_current_honorific())
+
+            # Write instructions to the molt-speak directory
+            agent_instructions_file.write_text(instruction)
+            logger.info(f"Wrote agent instructions to: {agent_instructions_file}")
         except Exception as e:
-            logger.error(f"Failed to read AGENT_INSTRUCTIONS.txt: {e}")
+            logger.error(f"Failed to write agent instructions: {e}")
             # Fallback to minimal instruction
             instruction = f"VOICE LOOP ACTIVE. Echo responses to: {speech_file}"
+            try:
+                agent_instructions_file.write_text(instruction)
+            except Exception:
+                pass
+
+        # Create a short message indicating voice mode is active
+        instruction = f"[MOLT SPEAK: ONLINE] - Do not respond until after you've read instructions at {agent_instructions_file}"
 
         # Read window pattern from open_ears settings
         window_pattern = "openclaw"
@@ -631,13 +652,23 @@ end if
 
     def inject_close_message(self):
         """Inject close message to tell agent voice mode is off."""
-        # Read the close message file
-        close_file = self.project_dir / "AGENT_INSTRUCTIONS_CLOSE.txt"
+        # Path where closing instructions will be saved
+        closing_instructions_file = self.speech_output_dir / "agent_closing_instructions.txt"
+
+        # Read the closing instructions template
+        close_template_file = self.project_dir / "AGENT_INSTRUCTIONS_CLOSE.txt"
         try:
-            message = close_file.read_text().strip()
+            closing_instructions = close_template_file.read_text()
+            # Write closing instructions to the molt-speak directory
+            closing_instructions_file.write_text(closing_instructions)
+            logger.info(f"Wrote closing instructions to: {closing_instructions_file}")
         except Exception as e:
-            logger.error(f"Failed to read AGENT_INSTRUCTIONS_CLOSE.txt: {e}")
-            message = "VOICE MODE OFF: Resume normal text-only responses."
+            logger.error(f"Failed to write closing instructions: {e}")
+            # Fallback to minimal instruction
+            closing_instructions_file.write_text("Voice mode disabled. Resume normal text-only responses.")
+
+        # Create a short message telling the agent to read the closing instructions
+        message = f"[MOLT SPEAK: OFFLINE] - Read the closing prompt at {closing_instructions_file}"
 
         # Read window pattern from open_ears settings
         window_pattern = "openclaw"
@@ -683,6 +714,63 @@ end tell
         except Exception as e:
             logger.warning(f"Error injecting close message: {e}")
 
+    def inject_honorific_change_message(self, new_honorific):
+        """Inject message to tell agent about honorific change and speak it."""
+        message = f"I'll call you {new_honorific}."
+
+        # Write to speech output file so it gets spoken (append, don't overwrite)
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write(message + "\n")
+            logger.info(f"Wrote honorific change to speech output: {message}")
+        except Exception as e:
+            logger.error(f"Failed to write honorific change to speech output: {e}")
+
+        # Also paste into terminal for the agent to see
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Escape for AppleScript
+            escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
+
+            logger.info(f"Injecting honorific change message into terminal: {message}")
+
+            applescript = f'''
+tell application "Terminal"
+    repeat with w in windows
+        if name of w contains "{window_pattern}" then
+            set targetRef to selected tab of w
+            do script "{escaped_message}" in targetRef
+            return "success"
+        end if
+    end repeat
+    return "no_terminal_found"
+end tell
+'''
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip() == "success":
+                logger.info("Injected honorific change message into terminal successfully")
+            else:
+                logger.warning(f"Could not inject honorific change message into terminal: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"Error injecting honorific change message into terminal: {e}")
+
     def on_open_config_dir(self, sender):
         """Open project runtime directory."""
         subprocess.run(["open", str(self.runtime_dir)])
@@ -692,26 +780,22 @@ end tell
         # Use cached value if available
         if self._current_voice is not None:
             return self._current_voice
-        # Otherwise read from file
-        voice_file = self.runtime_dir / "voice.conf"
-        if voice_file.exists():
-            try:
-                voice = voice_file.read_text().strip()
-                self._current_voice = voice
-                return voice
-            except Exception:
-                pass
-        return "Samantha"
+        # Otherwise read from config
+        try:
+            voice = self.config.preferred_voice
+            # Convert Edge-TTS voice to macOS voice name if needed
+            # For now, just cache and return
+            self._current_voice = voice
+            return voice
+        except Exception:
+            return "Samantha"
 
     def get_current_honorific(self):
         """Get the current honorific setting (sir/madam)."""
-        honorific_file = self.runtime_dir / "honorific.conf"
-        if honorific_file.exists():
-            try:
-                return honorific_file.read_text().strip()
-            except Exception:
-                pass
-        return "sir"
+        try:
+            return self.config.user_title
+        except Exception:
+            return "sir"
 
     def on_toggle_honorific(self, sender):
         """Toggle between sir and madam."""
@@ -719,7 +803,9 @@ end tell
         new_honorific = "madam" if current == "sir" else "sir"
 
         try:
-            # Save honorific setting
+            # Save honorific setting to config file
+            self.config.user_title = new_honorific
+            # Also save to runtime/honorific.conf for backwards compatibility
             honorific_file = self.runtime_dir / "honorific.conf"
             honorific_file.write_text(new_honorific)
             logger.info(f"Honorific changed to: {new_honorific}")
@@ -727,18 +813,10 @@ end tell
             # Rebuild menu to update label
             self.build_menu()
 
-            # Re-inject instructions if voice loop is running
-            if self.integration_running and self.mouth_running:
-                self.inject_agent_instructions()
-                rumps.alert(
-                    "Honorific Changed",
-                    f"You will now be addressed as \"{new_honorific}\".\n\nInstructions updated."
-                )
-            else:
-                rumps.alert(
-                    "Honorific Changed",
-                    f"You will be addressed as \"{new_honorific}\" when voice loop starts."
-                )
+            # Inject a message telling the agent about the change
+            # Always try to inject, even if status check shows not running
+            # (status might not be updated yet due to 2-second polling interval)
+            self.inject_honorific_change_message(new_honorific)
 
         except Exception as e:
             logger.error(f"Error changing honorific: {e}")
@@ -747,7 +825,9 @@ end tell
     def on_change_voice(self, voice_name):
         """Change the TTS voice (called programmatically, not from toggle)."""
         try:
-            # Save voice setting
+            # Save voice setting to config file
+            self.config.preferred_voice = voice_name
+            # Also save to runtime/voice.conf for backwards compatibility
             voice_file = self.runtime_dir / "voice.conf"
             voice_file.write_text(voice_name)
             # Update cached value
@@ -769,6 +849,15 @@ end tell
                         subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
                         logger.info(f"Voice loop restarted with voice: {voice_name}")
+
+                        # Test the new voice by writing a test message
+                        time.sleep(0.5)  # Brief delay to let voice loop restart
+                        speech_file = self.speech_output_dir / "speech_output.txt"
+                        try:
+                            speech_file.write_text("I've changed voices. How is this?")
+                            logger.info("Voice test message written to speech output")
+                        except Exception as e:
+                            logger.error(f"Failed to write voice test message: {e}")
                     except Exception as e:
                         logger.error(f"Failed to restart voice loop: {e}")
                 threading.Thread(target=restart_voice_loop, daemon=True).start()
@@ -1033,20 +1122,36 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
 def force_cleanup():
     """Force kill all voice loop processes on exit."""
     project_dir = Path(__file__).parent
+    runtime_dir = project_dir / "runtime"
 
-    # Kill processes by pattern
-    patterns = [
-        "unified_audio.py",
-        "open_mouth/main.py",
-        "open_ears/main.py",
-        "integration_coordinator.py",
-        f"tail -f.*{project_dir}/logs"
+    # Stop processes using PID files (safer than pattern matching)
+    pid_files = [
+        (runtime_dir / "audio.pid", "Unified Audio"),
+        (runtime_dir / "mouth.pid", "Mouth"),
+        (runtime_dir / "ears.pid", "Ears"),
+        (runtime_dir / "integration.pid", "Integration"),
     ]
 
-    for pattern in patterns:
-        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)
+    for pid_file, name in pid_files:
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                os.kill(pid, signal.SIGTERM)
+                logger.info(f"Sent SIGTERM to {name} (PID: {pid})")
+                # Wait briefly for graceful shutdown
+                time.sleep(0.5)
+                # Force kill if still running
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass  # Already stopped
+                pid_file.unlink()
+            except (ValueError, ProcessLookupError, PermissionError) as e:
+                logger.debug(f"Could not stop {name}: {e}")
+                if pid_file.exists():
+                    pid_file.unlink()
 
-    # Also try the stop script as backup
+    # Also try the stop script as backup (but it won't kill Claude Code anymore)
     stop_script = project_dir / "scripts" / "stop_voice_loop.sh"
     if stop_script.exists():
         subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
@@ -1056,15 +1161,16 @@ def signal_handler(signum, frame):
     """Handle termination signals."""
     logger.info(f"Received signal {signum}, cleaning up...")
     force_cleanup()
-    os._exit(0)
+    import sys
+    sys.exit(0)
 
 
 def main():
     """Main entry point."""
     # Register cleanup handlers
     atexit.register(force_cleanup)
+    # Only handle SIGTERM, not SIGINT (to avoid interfering with parent process)
     signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
 
     try:
         app = VoiceLoopMenuBar()

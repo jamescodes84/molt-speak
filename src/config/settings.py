@@ -33,6 +33,7 @@ SPEECH_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 EARS_OUTPUT_FILE: Path = RUNTIME_DIR / "transcriptions.txt"
 MOUTH_STATUS_FILE: Path = RUNTIME_DIR / "mouth_status.txt"
 MOUTH_INPUT_FILE: Path = SPEECH_OUTPUT_DIR / "speech_output.txt"
+CONFIG_FILE: Path = SPEECH_OUTPUT_DIR / "molt_speak_config.json"
 
 # ============================================================================
 # Monitoring Configuration

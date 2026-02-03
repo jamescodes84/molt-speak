@@ -168,13 +168,14 @@ echo "$AUDIO_PID" > "$RUNTIME_DIR/ears.pid"
 # Create speech output directory in standard location
 SPEECH_OUTPUT_DIR="$HOME/openclaw-workspace/molt-speak"
 mkdir -p "$SPEECH_OUTPUT_DIR"
-touch "$SPEECH_OUTPUT_DIR/speech_output.txt"
+# Clear speech output file to ensure fresh start
+: > "$SPEECH_OUTPUT_DIR/speech_output.txt"
 echo -e "      ${GREEN}✓ Created speech output at $SPEECH_OUTPUT_DIR/speech_output.txt${NC}"
 
 # Create simple symlink for agent to use (no spaces in path)
-# First clean up any stale symlink from other users
-rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
-ln -sf "$SPEECH_OUTPUT_DIR/speech_output.txt" /tmp/speak.txt
+# Clean up any stale symlink (ignore errors if it doesn't exist or has permission issues)
+rm -f /tmp/speak.txt 2>/dev/null || true
+ln -sf "$SPEECH_OUTPUT_DIR/speech_output.txt" /tmp/speak.txt 2>/dev/null || true
 echo -e "      ${GREEN}✓ Created /tmp/speak.txt symlink${NC}"
 
 echo ""
