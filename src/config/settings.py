@@ -20,15 +20,19 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE: Optional[str] = os.getenv("LOG_FILE")
 
 # ============================================================================
-# Project Directories (use project-local paths, not ~/.openclaw)
+# Project Directories
 # ============================================================================
 PROJECT_DIR: Path = Path(__file__).parent.parent.parent  # molt-speak root
 RUNTIME_DIR: Path = PROJECT_DIR / "runtime"
 RUNTIME_DIR.mkdir(exist_ok=True)
 
+# Speech output directory - standard location for all users
+SPEECH_OUTPUT_DIR: Path = Path.home() / "openclaw-workspace" / "molt-speak"
+SPEECH_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 EARS_OUTPUT_FILE: Path = RUNTIME_DIR / "transcriptions.txt"
 MOUTH_STATUS_FILE: Path = RUNTIME_DIR / "mouth_status.txt"
-MOUTH_INPUT_FILE: Path = RUNTIME_DIR / "speech_output.txt"
+MOUTH_INPUT_FILE: Path = SPEECH_OUTPUT_DIR / "speech_output.txt"
 
 # ============================================================================
 # Monitoring Configuration

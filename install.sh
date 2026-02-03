@@ -62,9 +62,20 @@ fi
 if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}! Molt-Speak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
+
+    # Fetch first so we can reset to remote
     git fetch origin
-    git checkout main
-    git pull origin main
+
+    # Remove venv before reset to avoid conflicts (it was tracked in old commits)
+    if [ -d "$INSTALL_DIR/venv" ]; then
+        echo -e "${BLUE}  Removing old venv to avoid conflicts...${NC}"
+        rm -rf "$INSTALL_DIR/venv"
+    fi
+
+    # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
+    git reset --hard origin/main 2>/dev/null || true
+    git clean -fd 2>/dev/null || true
+    git checkout main 2>/dev/null || true
 else
     echo -e "${YELLOW}! Cloning Molt-Speak repository...${NC}"
     git clone -b main "$REPO_URL" "$INSTALL_DIR"
@@ -137,6 +148,9 @@ case "$1" in
             echo "  molt-speak start"
             exit 0
         fi
+
+        # Clean up stale tmp files that may have wrong permissions
+        rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 
         echo "Starting OpenSpeak Menu Bar..."
         cd "$INSTALL_DIR"
@@ -227,9 +241,31 @@ case "$1" in
     update)
         echo "Updating OpenSpeak..."
         cd "$INSTALL_DIR"
-        git pull
-        source venv/bin/activate
-        pip install --upgrade -r requirements.txt 2>/dev/null || true
+
+        # Fetch first so we can reset to remote
+        git fetch origin
+
+        # Remove venv before reset to avoid conflicts
+        if [ -d "$INSTALL_DIR/venv" ]; then
+            echo "  Removing old venv to avoid conflicts..."
+            rm -rf "$INSTALL_DIR/venv"
+        fi
+
+        # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
+        git reset --hard origin/main 2>/dev/null || true
+        git clean -fd 2>/dev/null || true
+
+        # Recreate venv
+        echo "  Recreating virtual environment..."
+        python3 -m venv "$INSTALL_DIR/venv"
+        source "$INSTALL_DIR/venv/bin/activate"
+        pip install --upgrade pip > /dev/null 2>&1
+        pip install -r requirements.txt 2>&1 | grep -E "(Collecting|Installing|Successfully)" || true
+        deactivate
+
+        # Clean up stale tmp files that may have wrong permissions
+        rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
+
         echo "✓ OpenSpeak updated"
         ;;
 
@@ -257,6 +293,14 @@ echo -e "${GREEN}✓${NC} molt-speak command installed"
 # Create runtime directory
 mkdir -p "$INSTALL_DIR/runtime"
 mkdir -p "$INSTALL_DIR/logs"
+
+# Create speech output directory - standard location for all users
+SPEECH_OUTPUT_DIR="$HOME/openclaw-workspace/molt-speak"
+mkdir -p "$SPEECH_OUTPUT_DIR"
+touch "$SPEECH_OUTPUT_DIR/speech_output.txt"
+
+# Clean up stale tmp files that may have wrong permissions from other users
+rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"

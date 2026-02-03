@@ -22,6 +22,13 @@ molt-speak status  # Check status
 molt-speak update  # Update to latest version
 ```
 
+### Uninstall / Clean Reinstall
+
+If you encounter issues, do a clean reinstall:
+```bash
+rm -rf ~/.molt-speak && curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/install.sh | bash
+```
+
 ## Overview
 
 Molt-Speak monitors the Mouth's speaking status and signals Ears to pause its microphone when the agent is speaking, preventing audio feedback loops.
