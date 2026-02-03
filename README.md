@@ -1,4 +1,4 @@
-# Molt-Speak Voice Loop System
+# Molt Speak Voice Loop System
 
 Complete voice interaction system for AI agents on macOS, featuring voice input (Ears), text-to-speech output (Mouth), and intelligent echo prevention.
 
