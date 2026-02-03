@@ -813,10 +813,8 @@ end tell
             # Rebuild menu to update label
             self.build_menu()
 
-            # Inject a message telling the agent about the change
-            # Always try to inject, even if status check shows not running
-            # (status might not be updated yet due to 2-second polling interval)
-            self.inject_honorific_change_message(new_honorific)
+            # Note: We don't announce the change - just save it silently.
+            # The agent will use the new honorific naturally in its next response.
 
         except Exception as e:
             logger.error(f"Error changing honorific: {e}")
