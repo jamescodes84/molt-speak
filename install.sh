@@ -62,6 +62,17 @@ fi
 if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}! Molt-Speak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
+
+    # Remove venv before pull to avoid conflicts (it's in .gitignore but may have been tracked before)
+    if [ -d "$INSTALL_DIR/venv" ]; then
+        echo -e "${BLUE}  Removing old venv to avoid conflicts...${NC}"
+        rm -rf "$INSTALL_DIR/venv"
+    fi
+
+    # Reset any local changes that might conflict
+    git reset --hard HEAD 2>/dev/null || true
+    git clean -fd 2>/dev/null || true
+
     git fetch origin
     git checkout main
     git pull origin main
@@ -137,6 +148,9 @@ case "$1" in
             echo "  molt-speak start"
             exit 0
         fi
+
+        # Clean up stale tmp files that may have wrong permissions
+        rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 
         echo "Starting OpenSpeak Menu Bar..."
         cd "$INSTALL_DIR"
@@ -227,9 +241,30 @@ case "$1" in
     update)
         echo "Updating OpenSpeak..."
         cd "$INSTALL_DIR"
+
+        # Remove venv before pull to avoid conflicts
+        if [ -d "$INSTALL_DIR/venv" ]; then
+            echo "  Removing old venv to avoid conflicts..."
+            rm -rf "$INSTALL_DIR/venv"
+        fi
+
+        # Reset any local changes
+        git reset --hard HEAD 2>/dev/null || true
+        git clean -fd 2>/dev/null || true
+
         git pull
-        source venv/bin/activate
-        pip install --upgrade -r requirements.txt 2>/dev/null || true
+
+        # Recreate venv
+        echo "  Recreating virtual environment..."
+        python3 -m venv "$INSTALL_DIR/venv"
+        source "$INSTALL_DIR/venv/bin/activate"
+        pip install --upgrade pip > /dev/null 2>&1
+        pip install -r requirements.txt 2>&1 | grep -E "(Collecting|Installing|Successfully)" || true
+        deactivate
+
+        # Clean up stale tmp files that may have wrong permissions
+        rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
+
         echo "✓ OpenSpeak updated"
         ;;
 
@@ -257,6 +292,9 @@ echo -e "${GREEN}✓${NC} molt-speak command installed"
 # Create runtime directory
 mkdir -p "$INSTALL_DIR/runtime"
 mkdir -p "$INSTALL_DIR/logs"
+
+# Clean up stale tmp files that may have wrong permissions from other users
+rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
