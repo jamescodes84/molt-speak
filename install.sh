@@ -11,6 +11,7 @@ NC='\033[0m' # No Color
 # Installation directory
 INSTALL_DIR="$HOME/.molt-speak"
 REPO_URL="https://github.com/jamescodes84/molt-speak.git"
+BRANCH="${BRANCH:-main}"  # Default to main, override with: BRANCH=develop bash install.sh
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     OpenSpeak Voice Loop Installer     ║${NC}"
@@ -72,13 +73,13 @@ if [ -d "$INSTALL_DIR" ]; then
         rm -rf "$INSTALL_DIR/venv"
     fi
 
-    # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
-    git reset --hard origin/main 2>/dev/null || true
+    # Reset to remote branch (not local HEAD) to skip over commits where venv was tracked
+    git reset --hard origin/$BRANCH 2>/dev/null || true
     git clean -fd 2>/dev/null || true
-    git checkout main 2>/dev/null || true
+    git checkout $BRANCH 2>/dev/null || true
 else
-    echo -e "${YELLOW}! Cloning Molt-Speak repository...${NC}"
-    git clone -b main "$REPO_URL" "$INSTALL_DIR"
+    echo -e "${YELLOW}! Cloning Molt-Speak repository (branch: $BRANCH)...${NC}"
+    git clone -b $BRANCH "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
@@ -242,6 +243,10 @@ case "$1" in
         echo "Updating OpenSpeak..."
         cd "$INSTALL_DIR"
 
+        # Detect current branch
+        CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+        echo "  Current branch: $CURRENT_BRANCH"
+
         # Fetch first so we can reset to remote
         git fetch origin
 
@@ -251,8 +256,8 @@ case "$1" in
             rm -rf "$INSTALL_DIR/venv"
         fi
 
-        # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
-        git reset --hard origin/main 2>/dev/null || true
+        # Reset to remote branch (not local HEAD) to skip over commits where venv was tracked
+        git reset --hard origin/$CURRENT_BRANCH 2>/dev/null || true
         git clean -fd 2>/dev/null || true
 
         # Recreate venv
@@ -269,6 +274,21 @@ case "$1" in
         echo "✓ OpenSpeak updated"
         ;;
 
+    elo)
+        echo "Configuring ElevenLabs TTS..."
+        cd "$INSTALL_DIR"
+
+        # Check if script exists
+        if [ ! -f "scripts/molt-speak-elo.sh" ]; then
+            echo "Error: ElevenLabs configuration script not found"
+            echo "Please update to the latest version: molt-speak update"
+            exit 1
+        fi
+
+        # Run the configuration script
+        ./scripts/molt-speak-elo.sh
+        ;;
+
     *)
         echo "OpenSpeak Voice Loop - molt-speak command"
         echo ""
@@ -281,6 +301,7 @@ case "$1" in
         echo "  status   - Check if voice loop is running"
         echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"
+        echo "  elo      - Configure ElevenLabs TTS (premium voices)"
         echo ""
         ;;
 esac
