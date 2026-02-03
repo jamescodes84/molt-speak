@@ -1,125 +1,178 @@
-# Molt Speak Voice Loop System
+# Molt Speak
 
-Complete voice interaction system for AI agents on macOS, featuring voice input (Ears), text-to-speech output (Mouth), and intelligent echo prevention.
+Voice integration for AI agents on macOS. Talk to your AI, hear it respond.
 
-## ⚠️ IMPORTANT REQUIREMENT
+## Requirements
 
-**You MUST have OpenClaw TUI running in its own terminal window for Molt Speak to work.**
+- macOS (Apple Silicon or Intel)
+- Python 3.9+
+- An AI agent running in Terminal (e.g., OpenClaw TUI, Claude Code)
 
-The voice system types transcribed speech directly into the OpenClaw agent. Without an agent running, there's nothing to talk to!
-
-## 🚀 Quick Install (One-Line)
+## Quick Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/install.sh | bash
 ```
 
-After installation:
+## Usage
+
+1. **Start your AI agent** in a Terminal window
+2. **Launch Molt Speak**:
+   ```bash
+   molt-speak start
+   ```
+3. **Start talking** - your voice is transcribed and sent to the agent
+4. **Listen** - the agent's responses are spoken aloud
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `molt-speak start` | Open menu bar app and start voice loop |
+| `molt-speak stop` | Stop the voice loop (menu bar stays open) |
+| `molt-speak quit` | Quit everything |
+| `molt-speak status` | Check if voice loop is running |
+| `molt-speak update` | Update to latest version |
+
+## Menu Bar App
+
+Once running, you'll see a lobster icon in your menu bar:
+
+- **🔴🦞** = Voice loop stopped
+- **🟢🦞** = Voice loop active
+
+Click to access:
+- Start/Stop voice loop
+- Change voice (Samantha, Daniel, etc.)
+- Toggle honorific (Sir/Madam)
+- View logs
+
+## How It Works
+
+```
+You speak → Ears transcribes → Types into agent terminal
+                                      ↓
+You hear ← Mouth speaks ← Agent writes response
+```
+
+**Echo Prevention**: When the agent speaks, your microphone automatically pauses to prevent feedback loops.
+
+## File Locations
+
+All runtime files are stored in `~/.molt-speak/runtime/`:
+
+| File | Purpose |
+|------|---------|
+| `speech_output.txt` | Agent writes here to speak |
+| `mouth_status.txt` | Tracks speaking state |
+| `ears_pause.signal` | Pauses mic during playback |
+
+## Agent Integration
+
+For your AI agent to speak, it writes to the speech output file:
+
 ```bash
-molt-speak start   # Open menu bar (select voice & start)
-molt-speak stop    # Stop the voice loop
-molt-speak status  # Check status
-molt-speak update  # Update to latest version
+echo "Hello! How can I help you?" >> ~/.molt-speak/runtime/speech_output.txt
 ```
 
-### Uninstall / Clean Reinstall
+Or in Python:
+```python
+from pathlib import Path
 
-If you encounter issues, do a clean reinstall:
+speech_file = Path.home() / ".molt-speak" / "runtime" / "speech_output.txt"
+with open(speech_file, "a") as f:
+    f.write("Hello! How can I help you?\n")
+```
+
+## Troubleshooting
+
+### Voice loop won't start
+
+1. Make sure your AI agent is running in Terminal first
+2. Check that Terminal has microphone permissions (System Settings → Privacy & Security → Microphone)
+
+### Can't hear speech
+
+1. Check your system volume
+2. Verify the speech file exists: `ls ~/.molt-speak/runtime/speech_output.txt`
+
+### Permission denied errors
+
+Run a clean reinstall:
 ```bash
-rm -rf ~/.molt-speak && curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/install.sh | bash
+molt-speak quit
+rm -rf ~/.molt-speak
+molt-speak update
+molt-speak start
 ```
 
-## Overview
+### Echo/feedback issues
 
-Molt-Speak monitors the Mouth's speaking status and signals Ears to pause its microphone when the agent is speaking, preventing audio feedback loops.
+The system should automatically pause your mic when the agent speaks. If you hear echo:
+1. Stop and restart: `molt-speak stop && molt-speak start`
+2. Check logs: Click menu bar → View Logs
 
-### How It Works
+## Uninstall
 
-```
-1. Mouth speaks → Updates mouth_status.txt to "SPEAKING"
-2. Molt-Speak monitors file → Detects "SPEAKING" status
-3. Creates pause signal file → ~/.molt-speak/runtime/ears_pause.signal
-4. Ears checks signal → Pauses microphone
-5. No echo! 🎉
-6. Mouth finishes → Status changes to "IDLE"
-7. Molt-Speak removes signal → Ears resumes listening
+```bash
+molt-speak quit
+rm -rf ~/.molt-speak
+sudo rm /usr/local/bin/molt-speak
 ```
 
-## Architecture
+---
+
+## Developer Information
+
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│            Molt-Speak Voice Loop Coordinator        │
+│                  Molt Speak System                   │
 ├─────────────────────────────────────────────────────┤
 │                                                      │
-│  Monitor Thread                                      │
-│    ↓                                                 │
-│  Polls ~/.molt-speak/runtime/mouth_status.txt (100ms)│
-│    ↓                                                 │
-│  Detects SPEAKING status                            │
-│    ↓                                                 │
-│  Creates ~/.molt-speak/runtime/ears_pause.signal    │
-│    ↓                                                 │
-│  Ears checks signal → Pauses mic                    │
-│    ↓                                                 │
-│  Mouth finishes (IDLE status)                       │
-│    ↓                                                 │
-│  Removes pause signal (after 200ms debounce)        │
-│    ↓                                                 │
-│  Ears resumes listening                             │
+│  ┌──────────┐    ┌──────────┐    ┌──────────────┐  │
+│  │  Ears    │    │  Mouth   │    │ Coordinator  │  │
+│  │  (STT)   │    │  (TTS)   │    │ (Echo Prev)  │  │
+│  └──────────┘    └──────────┘    └──────────────┘  │
+│       ↓               ↑                ↕            │
+│  Transcribes     Speaks text      Monitors &       │
+│  your voice      from file        signals pause    │
 │                                                      │
 └─────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
+### Components
 
-### Prerequisites
+| Component | Directory | Purpose |
+|-----------|-----------|---------|
+| Ears | `open_ears/` | Speech-to-text using Whisper |
+| Mouth | `open_mouth/` | Text-to-speech using macOS voices |
+| Coordinator | `src/` | Echo prevention coordination |
+| Menu Bar | `unified_menu_bar.py` | GUI control interface |
 
-- Python 3.9+
-- Molt-Speak Ears installed and configured
-- Molt-Speak Mouth installed and configured
+### Running Components Separately
 
-### Installation
+For development, you can run each component in its own terminal:
 
+**Terminal 1 - Coordinator**:
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Or use the startup script (creates venv automatically)
-./start_integration.sh
+python main.py
 ```
 
-### Usage
-
-**Terminal 1** - Start Integration Coordinator:
+**Terminal 2 - Mouth**:
 ```bash
-./start_integration.sh
+cd open_mouth && python main.py --local --voice Samantha
 ```
 
-**Terminal 2** - Start Mouth:
+**Terminal 3 - Ears**:
 ```bash
-cd open_mouth
-./start_speech_system.sh
+cd open_ears && python main.py
 ```
 
-**Terminal 3** - Start Ears (with pause signal support):
-```bash
-cd open_ears
-./start_voice_system.sh
-```
+### Configuration
 
-**Terminal 4** - Test:
-```bash
-# Send text to Mouth
-echo "Hello, testing echo prevention" >> ~/.molt-speak/runtime/speech_output.txt
-
-# Speak while TTS is playing - no transcription should occur
-# Speak after TTS finishes - transcription should work
-```
-
-## Configuration
-
-Create a `.env` file (see `.env.example`):
+Create a `.env` file to customize behavior:
 
 ```bash
 # Integration
@@ -127,145 +180,28 @@ ENABLE_INTEGRATION=true
 
 # Monitoring
 MOUTH_STATUS_POLL_INTERVAL=0.1    # Poll every 100ms
-MOUTH_STATUS_DEBOUNCE_MS=200      # 200ms debounce
+MOUTH_STATUS_DEBOUNCE_MS=200      # 200ms debounce after speaking
 
 # Logging
 LOG_LEVEL=INFO
-LOG_FILE=                          # Optional log file path
 ```
 
-## Project Structure
-
-```
-.
-├── src/
-│   ├── config/
-│   │   └── settings.py           # Configuration management
-│   ├── services/
-│   │   └── mouth_status_monitor.py  # Monitor Mouth's speaking status
-│   ├── core/
-│   │   └── coordinator.py        # Main coordination logic
-│   └── utils/
-│       └── __init__.py
-├── main.py                       # Entry point
-├── requirements.txt              # Dependencies (minimal)
-├── start_integration.sh          # Startup script
-├── .env.example                  # Configuration template
-└── README.md                     # This file
-```
-
-## How Ears Should Integrate
-
-Ears needs to check for the pause signal file:
-
-```python
-# In ears capture loop:
-pause_signal_file = Path.home() / ".molt-speak" / "runtime" / "ears_pause.signal"
-
-if pause_signal_file.exists():
-    # Pause microphone - clear buffer
-    with buffer_lock:
-        audio_buffer = []
-    continue  # Skip transcription
-```
-
-## Signal Files
-
-| File | Purpose | Created By | Read By |
-|------|---------|------------|---------|
-| `~/.molt-speak/runtime/mouth_status.txt` | Mouth speaking status | Mouth | Molt-Speak |
-| `~/.molt-speak/runtime/ears_pause.signal` | Pause microphone signal | Molt-Speak | Ears |
-
-## Status File Format
+### Signal File Format
 
 **mouth_status.txt**:
 ```
-<ISO-8601 timestamp>|<status>|<details>
-```
-
-Example:
-```
-2026-02-01T12:15:24.161586|SPEAKING|Hello, this is a test message
+2026-02-01T12:15:24.161586|SPEAKING|Hello, this is a test
 2026-02-01T12:15:25.167795|IDLE|
 ```
 
-**ears_pause.signal**:
-```
-<unix timestamp>
-```
+**ears_pause.signal**: Unix timestamp (file existence = pause mic)
 
-Simple file existence check - if exists, Ears should pause.
-
-## Features
-
-- ✅ **Zero-dependency integration** - Uses stdlib only (+ python-dotenv)
-- ✅ **File-based signaling** - Simple, reliable, no sockets/IPC needed
-- ✅ **Debouncing** - Prevents rapid pause/resume cycles
-- ✅ **Graceful degradation** - Works even if Mouth isn't running
-- ✅ **Thread-safe** - Concurrent monitoring and signaling
-- ✅ **Configurable** - Tune polling and debounce via environment
-- ✅ **Lightweight** - Minimal CPU usage (~0.1%)
-- ✅ **Production-ready** - Proper logging, error handling, signal handlers
-
-## Performance
-
-- **CPU Usage**: <0.1% (polls small file 10x/second)
-- **Memory**: ~5MB (single monitoring thread)
-- **Latency**: <200ms from Mouth speaking to Ears paused
-- **Overhead**: Negligible file I/O (single line reads)
-
-## Troubleshooting
-
-### Integration not working
-
-**Check coordinator is running**:
-```bash
-ps aux | grep "main.py"
-```
-
-**Check pause signal file**:
-```bash
-# Should appear when Mouth is speaking
-ls -la ~/.molt-speak/runtime/ears_pause.signal
-```
-
-**Check Mouth status file**:
-```bash
-cat ~/.molt-speak/runtime/mouth_status.txt
-```
-
-### Ears not pausing
-
-Make sure Ears is modified to check the pause signal file. The integration creates the signal, but Ears must read and respect it.
-
-### High CPU usage
-
-Increase `MOUTH_STATUS_POLL_INTERVAL` to reduce polling frequency (e.g., `0.2` for 200ms).
-
-## Development
-
-### Running tests
-
-```bash
-# Unit tests (TODO)
-pytest tests/unit/
-
-# Integration tests (TODO)
-pytest tests/integration/
-```
-
-### Logging levels
-
-- `DEBUG`: Detailed state transitions
-- `INFO`: Coordinator lifecycle, speaking events
-- `WARNING`: Configuration issues, file unavailable
-- `ERROR`: Exceptions, file I/O errors
+---
 
 ## License
 
-MIT License - See LICENSE file
+MIT License
 
-## Author
+## Contributing
 
-Molt-Speak Project
-Version 1.0.0
+Issues and PRs welcome at [github.com/jamescodes84/molt-speak](https://github.com/jamescodes84/molt-speak)
