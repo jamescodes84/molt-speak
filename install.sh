@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 # Installation directory
 INSTALL_DIR="$HOME/.molt-speak"
 REPO_URL="https://github.com/jamescodes84/molt-speak.git"
-BRANCH="${BRANCH:-main}"  # Default to main, override with: BRANCH=develop bash install.sh
+BRANCH="${BRANCH:-develop}"  # Default to develop branch (main uses main)
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     OpenSpeak Voice Loop Installer     ║${NC}"
