@@ -19,11 +19,12 @@ NC='\033[0m' # No Color
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+cd "$PROJECT_DIR"
 
 # Use project-local directories (NOT ~/.openclaw)
-RUNTIME_DIR="$SCRIPT_DIR/runtime"
-LOGS_DIR="$SCRIPT_DIR/logs"
+RUNTIME_DIR="$PROJECT_DIR/runtime"
+LOGS_DIR="$PROJECT_DIR/logs"
 mkdir -p "$RUNTIME_DIR" "$LOGS_DIR"
 
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"

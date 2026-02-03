@@ -8,10 +8,11 @@
 # 3. Integration Coordinator (echo prevention)
 #
 
-# Get script directory (project root)
+# Get script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUNTIME_DIR="$SCRIPT_DIR/runtime"
-LOGS_DIR="$SCRIPT_DIR/logs"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+RUNTIME_DIR="$PROJECT_DIR/runtime"
+LOGS_DIR="$PROJECT_DIR/logs"
 
 # Colors for output
 GREEN='\033[0;32m'
