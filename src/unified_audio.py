@@ -36,6 +36,10 @@ class UnifiedAudioSystem:
         self.runtime_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
 
+        # Speech output directory - standard location for all users
+        self.speech_output_dir = Path.home() / "openclaw-workspace" / "molt-speak"
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True)
+
         logger.info("Initializing Unified Audio System")
 
     def get_voice_setting(self):
@@ -110,9 +114,9 @@ class UnifiedAudioSystem:
         logger.info("Starting Unified Audio System")
         logger.info("=" * 60)
 
-        # Clear speech output file to start fresh (project-local)
+        # Clear speech output file to start fresh
         # The text monitor only reads NEW content after startup
-        speech_file = self.runtime_dir / "speech_output.txt"
+        speech_file = self.speech_output_dir / "speech_output.txt"
         try:
             speech_file.write_text("")
             logger.info(f"Cleared speech output file: {speech_file}")

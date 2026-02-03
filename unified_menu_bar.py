@@ -34,9 +34,13 @@ class VoiceLoopMenuBar(rumps.App):
         self.runtime_dir = self.project_dir / "runtime"
         self.logs_dir = self.project_dir / "logs"
 
+        # Speech output directory - standard location for all users
+        self.speech_output_dir = Path.home() / "openclaw-workspace" / "molt-speak"
+
         # Ensure directories exist
         self.runtime_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True)
 
         # PID files (in runtime dir)
         self.integration_pid_file = self.runtime_dir / "integration.pid"
@@ -318,7 +322,7 @@ class VoiceLoopMenuBar(rumps.App):
 
             if result.returncode == 0:
                 # Clear speech output queue to prevent old messages on restart
-                speech_output = self.runtime_dir / "speech_output.txt"
+                speech_output = self.speech_output_dir / "speech_output.txt"
                 try:
                     speech_output.write_text("")
                     logger.info("Cleared speech output queue")
@@ -511,7 +515,7 @@ end tell'''
     def inject_agent_instructions(self):
         """Inject startup instructions into the agent's TUI via clipboard paste."""
         # Dynamic path to speech output file
-        speech_file = str(self.runtime_dir / "speech_output.txt")
+        speech_file = str(self.speech_output_dir / "speech_output.txt")
 
         # Read the full AGENT_INSTRUCTIONS.txt file
         instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
@@ -847,7 +851,7 @@ end tell
             return
 
         self.inject_agent_instructions()
-        speech_file = str(self.runtime_dir / "speech_output.txt")
+        speech_file = str(self.speech_output_dir / "speech_output.txt")
         rumps.alert(
             "Instructions Injected",
             f"Voice loop instructions have been sent to the agent TUI.\n\n"

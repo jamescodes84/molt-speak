@@ -294,6 +294,11 @@ echo -e "${GREEN}✓${NC} molt-speak command installed"
 mkdir -p "$INSTALL_DIR/runtime"
 mkdir -p "$INSTALL_DIR/logs"
 
+# Create speech output directory - standard location for all users
+SPEECH_OUTPUT_DIR="$HOME/openclaw-workspace/molt-speak"
+mkdir -p "$SPEECH_OUTPUT_DIR"
+touch "$SPEECH_OUTPUT_DIR/speech_output.txt"
+
 # Clean up stale tmp files that may have wrong permissions from other users
 rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 

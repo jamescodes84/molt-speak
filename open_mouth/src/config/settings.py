@@ -15,10 +15,12 @@ DEFAULT_VOLUME = float(os.getenv("TTS_VOLUME", "1.0"))
 DEFAULT_PITCH = float(os.getenv("TTS_PITCH", "0.0"))
 
 # Input Configuration
-# Use project-local runtime directory instead of ~/.openclaw
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent  # open_speak root
 RUNTIME_DIR = PROJECT_DIR / "runtime"
-INPUT_FILE = Path(os.getenv("INPUT_FILE", str(RUNTIME_DIR / "speech_output.txt")))
+
+# Speech output directory - standard location for all users
+SPEECH_OUTPUT_DIR = Path.home() / "openclaw-workspace" / "molt-speak"
+INPUT_FILE = Path(os.getenv("INPUT_FILE", str(SPEECH_OUTPUT_DIR / "speech_output.txt")))
 MONITOR_INTERVAL = float(os.getenv("MONITOR_INTERVAL", "0.1"))  # Check file every 0.1s
 
 # Status file for echo prevention coordination
