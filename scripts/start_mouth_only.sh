@@ -48,7 +48,7 @@ echo -e "${YELLOW}Starting OpenClaw Mouth...${NC}"
 
 # Start mouth
 cd open_mouth
-nohup python main.py $USE_LOCAL > "$LOGS_DIR/mouth.log" 2>&1 &
+nohup python3 main.py $USE_LOCAL > "$LOGS_DIR/mouth.log" 2>&1 &
 MOUTH_PID=$!
 echo "$MOUTH_PID" > "$RUNTIME_DIR/mouth.pid"
 

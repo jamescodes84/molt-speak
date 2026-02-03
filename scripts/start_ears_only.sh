@@ -40,7 +40,7 @@ echo -e "${YELLOW}Starting OpenClaw Ears...${NC}"
 
 # Start ears
 cd open_ears
-nohup python main.py > "$LOGS_DIR/ears.log" 2>&1 &
+nohup python3 main.py > "$LOGS_DIR/ears.log" 2>&1 &
 EARS_PID=$!
 echo "$EARS_PID" > "$RUNTIME_DIR/ears.pid"
 

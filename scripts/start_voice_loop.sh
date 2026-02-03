@@ -103,7 +103,7 @@ else
     source venv/bin/activate
 fi
 
-nohup python main.py > "$LOGS_DIR/integration.log" 2>&1 &
+nohup python3 main.py > "$LOGS_DIR/integration.log" 2>&1 &
 INTEGRATION_PID=$!
 echo "      PID: $INTEGRATION_PID"
 sleep 2
@@ -132,7 +132,7 @@ if [ -d "venv" ]; then
 fi
 
 # Start unified audio system
-nohup python src/unified_audio.py > "$LOGS_DIR/audio.log" 2>&1 &
+nohup python3 src/unified_audio.py > "$LOGS_DIR/audio.log" 2>&1 &
 AUDIO_PID=$!
 echo "      PID: $AUDIO_PID"
 sleep 3
