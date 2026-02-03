@@ -63,19 +63,19 @@ if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}! Molt-Speak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
 
-    # Remove venv before pull to avoid conflicts (it's in .gitignore but may have been tracked before)
+    # Fetch first so we can reset to remote
+    git fetch origin
+
+    # Remove venv before reset to avoid conflicts (it was tracked in old commits)
     if [ -d "$INSTALL_DIR/venv" ]; then
         echo -e "${BLUE}  Removing old venv to avoid conflicts...${NC}"
         rm -rf "$INSTALL_DIR/venv"
     fi
 
-    # Reset any local changes that might conflict
-    git reset --hard HEAD 2>/dev/null || true
+    # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
+    git reset --hard origin/main 2>/dev/null || true
     git clean -fd 2>/dev/null || true
-
-    git fetch origin
-    git checkout main
-    git pull origin main
+    git checkout main 2>/dev/null || true
 else
     echo -e "${YELLOW}! Cloning Molt-Speak repository...${NC}"
     git clone -b main "$REPO_URL" "$INSTALL_DIR"
@@ -242,17 +242,18 @@ case "$1" in
         echo "Updating OpenSpeak..."
         cd "$INSTALL_DIR"
 
-        # Remove venv before pull to avoid conflicts
+        # Fetch first so we can reset to remote
+        git fetch origin
+
+        # Remove venv before reset to avoid conflicts
         if [ -d "$INSTALL_DIR/venv" ]; then
             echo "  Removing old venv to avoid conflicts..."
             rm -rf "$INSTALL_DIR/venv"
         fi
 
-        # Reset any local changes
-        git reset --hard HEAD 2>/dev/null || true
+        # Reset to remote main (not local HEAD) to skip over commits where venv was tracked
+        git reset --hard origin/main 2>/dev/null || true
         git clean -fd 2>/dev/null || true
-
-        git pull
 
         # Recreate venv
         echo "  Recreating virtual environment..."
