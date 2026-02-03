@@ -4,7 +4,7 @@ Complete voice interaction system for AI agents on macOS, featuring voice input 
 
 ## ⚠️ IMPORTANT REQUIREMENT
 
-**You MUST have OpenClaw TUI running in its own terminal window for Molt-Speak to work.**
+**You MUST have OpenClaw TUI running in its own terminal window for Molt Speak to work.**
 
 The voice system types transcribed speech directly into the OpenClaw agent. Without an agent running, there's nothing to talk to!
 
