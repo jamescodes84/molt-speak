@@ -166,6 +166,8 @@ echo "$AUDIO_PID" > "$RUNTIME_DIR/mouth.pid"
 echo "$AUDIO_PID" > "$RUNTIME_DIR/ears.pid"
 
 # Create simple symlink for agent to use (no spaces in path)
+# First clean up any stale symlink from other users
+rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 ln -sf "$RUNTIME_DIR/speech_output.txt" /tmp/speak.txt
 echo -e "      ${GREEN}✓ Created /tmp/speak.txt symlink${NC}"
 
