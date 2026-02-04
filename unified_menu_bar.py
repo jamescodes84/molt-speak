@@ -1451,7 +1451,14 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
         """Quit the menu bar app and stop all voice loop processes."""
         self.on_stop_all(None)
         force_cleanup()
+        # Force kill by pattern as backup
+        subprocess.run(["pkill", "-f", "unified_audio"], capture_output=True)
+        subprocess.run(["pkill", "-f", "voice_pipeline"], capture_output=True)
+        subprocess.run(["pkill", "-f", "mouth_pipeline"], capture_output=True)
         rumps.quit_application()
+        # Force exit if rumps.quit_application doesn't work
+        import sys
+        sys.exit(0)
 
 
 def force_cleanup():
@@ -1490,6 +1497,11 @@ def force_cleanup():
     stop_script = project_dir / "scripts" / "stop_voice_loop.sh"
     if stop_script.exists():
         subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
+
+    # Force kill by pattern as final backup
+    subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
 
 
 def signal_handler(signum, frame):
