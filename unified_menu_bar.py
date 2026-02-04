@@ -44,16 +44,29 @@ class VoiceLoopMenuBar(rumps.App):
     def __init__(self):
         """Initialize menu bar app."""
         # Detect display configuration for adaptive menu bar setup
-        display_info = self._detect_display_config()
-        logger.info("Display config: %s", display_info)
+        self._display_info = self._detect_display_config()
+        logger.info("Display config: %s", self._display_info)
 
-        # Initialize rumps app
+        # Initialize rumps app with a simple title first
         super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+        self.title = "MS"
 
-        # Adaptive menu bar setup based on display type
-        self._setup_menu_bar_item(display_info)
+        # Schedule status item fix after app starts (rumps creates status item during run())
+        self._status_fix_timer = rumps.Timer(self._delayed_status_fix, 0.5)
+        self._status_fix_timer.start()
 
         logger.info("Menu bar app initialized with title: %s", self.title)
+
+    def _delayed_status_fix(self, timer):
+        """Fix status item visibility after app has fully started."""
+        timer.stop()  # Only run once
+        logger.info("Running delayed status fix...")
+
+        # Now the status item should exist
+        self._setup_menu_bar_item(self._display_info)
+        self._force_status_item_visible()
+
+        logger.info("Delayed status fix complete")
 
     def _detect_display_config(self) -> dict:
         """Detect display configuration to adapt menu bar behavior."""
