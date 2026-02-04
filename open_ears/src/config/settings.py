@@ -42,7 +42,26 @@ SAMPLE_RATE: int = int(os.getenv("SAMPLE_RATE", "16000"))
 # Speech threshold - lower = more sensitive (picks up quieter speech)
 # 100 = sensitive but won't pick up ambient noise or TTS speaker bleed
 # Too low (50) causes false barge-in from TTS audio hitting the mic
-SPEECH_THRESHOLD: int = int(os.getenv("SPEECH_THRESHOLD", "100"))
+def _get_speech_threshold() -> int:
+    """Get speech threshold from ConfigManager or environment."""
+    # Environment variable takes precedence
+    env_threshold = os.getenv("SPEECH_THRESHOLD")
+    if env_threshold:
+        return int(env_threshold)
+    # Try to get from ConfigManager (user's menu setting)
+    try:
+        import sys
+        config_manager_path = PROJECT_DIR / "src" / "config"
+        if str(config_manager_path) not in sys.path:
+            sys.path.insert(0, str(config_manager_path))
+        from config_manager import ConfigManager
+        config = ConfigManager()
+        return config.get_speech_threshold()
+    except Exception:
+        pass
+    return 100  # Default fallback
+
+SPEECH_THRESHOLD: int = _get_speech_threshold()
 # Silence duration - how long to wait after speech stops before processing
 # 3.0s allows for natural pauses and slower speech
 SEGMENT_DURATION: float = float(os.getenv("SEGMENT_DURATION", "3.0"))

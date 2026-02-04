@@ -27,7 +27,17 @@ class ConfigManager:
         "tts_provider": "edge-tts",  # Options: "edge-tts", "elevenlabs"
         "elevenlabs_api_key": None,
         "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel (default)
-        "elevenlabs_model": "eleven_turbo_v2_5"  # Turbo for low latency
+        "elevenlabs_model": "eleven_turbo_v2_5",  # Turbo for low latency
+        "mic_sensitivity": "high"  # Options: "low", "medium", "high", "max"
+    }
+
+    # Mic sensitivity levels map to speech thresholds
+    # Lower threshold = more sensitive (picks up quieter sounds)
+    MIC_SENSITIVITY_THRESHOLDS = {
+        "low": 300,      # Less sensitive - only loud speech
+        "medium": 150,   # Balanced
+        "high": 100,     # Sensitive - default
+        "max": 50        # Maximum sensitivity - may pick up noise
     }
 
     def __init__(self, config_path: Optional[Path] = None):
@@ -184,3 +194,19 @@ class ConfigManager:
     def elevenlabs_model(self, model: str) -> None:
         """Set ElevenLabs model."""
         self.set("elevenlabs_model", model)
+
+    @property
+    def mic_sensitivity(self) -> str:
+        """Get mic sensitivity level (low, medium, high, max)."""
+        return self.get("mic_sensitivity", self.DEFAULT_CONFIG["mic_sensitivity"])
+
+    @mic_sensitivity.setter
+    def mic_sensitivity(self, level: str) -> None:
+        """Set mic sensitivity level."""
+        if level in self.MIC_SENSITIVITY_THRESHOLDS:
+            self.set("mic_sensitivity", level)
+
+    def get_speech_threshold(self) -> int:
+        """Get the speech threshold value based on mic sensitivity setting."""
+        level = self.mic_sensitivity
+        return self.MIC_SENSITIVITY_THRESHOLDS.get(level, 100)
