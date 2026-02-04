@@ -29,7 +29,9 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        super().__init__("🔴🦞", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
+        # Use simple text title for reliable display on all screens (laptops, external monitors)
+        # Emojis can fail to render on some displays
+        super().__init__("MS", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
@@ -575,9 +577,9 @@ class VoiceLoopMenuBar(rumps.App):
             all_running = self.integration_running and self.mouth_running and self.ears_running
 
             if all_running:
-                self.title = "🟢🦞"  # Green circle for active
+                self.title = "MS●"  # Dot for active
             else:
-                self.title = "🔴🦞"  # Red circle for inactive
+                self.title = "MS○"  # Empty circle for inactive
 
             # Rebuild menu if anything changed
             if (integration_was_running != self.integration_running or
