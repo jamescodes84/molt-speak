@@ -717,9 +717,9 @@ class VoiceLoopMenuBar(rumps.App):
             all_running = self.integration_running and self.mouth_running and self.ears_running
 
             if all_running:
-                self.title = "🦞🟢"  # Lobster with green dot for active
+                self.title = "🟢🦞"  # Green dot with lobster for active
             else:
-                self.title = "🦞🔴"  # Lobster with red dot for inactive
+                self.title = "🔴🦞"  # Red dot with lobster for inactive
 
             # Rebuild menu if anything changed
             if (integration_was_running != self.integration_running or
