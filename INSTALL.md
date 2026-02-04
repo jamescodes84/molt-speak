@@ -31,8 +31,8 @@ After installation, you can use these commands:
 # Start the menu bar app (recommended)
 molt-speak start
 
-# Configure ElevenLabs TTS (premium voices)
-molt-speak elo
+# Set ElevenLabs API key (premium voices)
+molt-speak elapi
 
 # Stop the voice loop
 molt-speak stop
@@ -63,10 +63,9 @@ molt-speak quit
 After installing from develop branch:
 
 1. Get an API key from [elevenlabs.io](https://elevenlabs.io)
-2. Run: `molt-speak elo`
-3. Follow the interactive setup wizard
-4. Select your preferred voice and model
-5. Test the voice before saving
+2. Run: `molt-speak elapi`
+3. Enter your API key
+4. Select your voice from the menu bar: Voice > (choose voice)
 
 The system will automatically switch between Edge-TTS (free) and ElevenLabs (premium) based on your configuration.
 
