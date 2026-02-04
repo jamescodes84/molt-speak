@@ -66,6 +66,9 @@ class ElevenLabsTTSService:
             Exception: If synthesis fails
         """
         try:
+            # Log the API call parameters for debugging
+            logger.debug(f"ElevenLabs TTS: voice_id={self.voice_id}, model={self.model}, text={text[:50]}...")
+
             # Run the synchronous API call in a thread pool
             loop = asyncio.get_event_loop()
             audio_generator = await loop.run_in_executor(

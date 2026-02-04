@@ -240,15 +240,15 @@ class VoiceLoopMenuBar(rumps.App):
                                    capture_output=True, timeout=15)
                     logger.info(f"Voice loop restarted with Edge-TTS voice: {voice_name}")
 
-                    # Test the new voice
+                    # Announce voice change
                     time.sleep(0.5)
                     speech_file = self.speech_output_dir / "speech_output.txt"
                     try:
                         with open(speech_file, 'a') as f:
-                            f.write("I've changed voices. How does this sound?\n")
-                        logger.info("Voice test message written to speech output")
+                            f.write("Voice Changed\n")
+                        logger.info("Voice change message written to speech output")
                     except Exception as e:
-                        logger.error(f"Failed to write voice test message: {e}")
+                        logger.error(f"Failed to write voice change message: {e}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
@@ -323,22 +323,24 @@ class VoiceLoopMenuBar(rumps.App):
             import threading
             def restart_voice_loop():
                 try:
+                    # Small delay to ensure config is flushed to disk
+                    time.sleep(0.2)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                     subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
-                    logger.info(f"Voice loop restarted with ElevenLabs voice: {voice_name}")
+                    logger.info(f"Voice loop restarted with ElevenLabs voice: {voice_name} ({voice_id})")
 
-                    # Test the new voice
+                    # Announce voice change
                     time.sleep(0.5)
                     speech_file = self.speech_output_dir / "speech_output.txt"
                     try:
                         with open(speech_file, 'a') as f:
-                            f.write(f"Voice changed to {voice_name}.\n")
+                            f.write("Voice Changed\n")
                     except Exception as e:
-                        logger.error(f"Failed to write voice test message: {e}")
+                        logger.error(f"Failed to write voice change message: {e}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()

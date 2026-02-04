@@ -88,17 +88,20 @@ class MouthPipeline:
             if provider == "elevenlabs":
                 # Create ElevenLabs TTS service
                 api_key = config.elevenlabs_api_key
+                voice_id = config.elevenlabs_voice_id
+                model = config.elevenlabs_model
                 if not api_key:
-                    logger.warning("ElevenLabs API key not configured. Falling back to Edge-TTS. Run 'molt-speak elo' to configure.")
+                    logger.warning("ElevenLabs API key not configured. Falling back to Edge-TTS. Run 'molt-speak elapi' to configure.")
                     provider = "edge-tts"
                 else:
+                    logger.info(f"Creating ElevenLabs TTS with voice_id={voice_id}, model={model}")
                     self.tts_service = TTSFactory.create_tts_service(
                         provider="elevenlabs",
-                        voice=config.elevenlabs_voice_id,
+                        voice=voice_id,
                         api_key=api_key,
-                        model=config.elevenlabs_model
+                        model=model
                     )
-                    logger.info(f"Using ELEVENLABS TTS (Voice ID: {config.elevenlabs_voice_id})")
+                    logger.info(f"Using ELEVENLABS TTS (Voice ID: {voice_id}, Model: {model})")
 
             if provider == "edge-tts":
                 # Create Edge-TTS service
