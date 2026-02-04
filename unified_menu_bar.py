@@ -43,19 +43,16 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        # Use simple text title for reliable display on all screens
-        super().__init__("MoltSpeak", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
-
-        # Set title explicitly and force status item to be visible
-        self.title = "MS"
-
-        # Double-check the status item is created by accessing it
-        # This forces rumps to create the NSStatusItem if it hasn't already
-        try:
-            if hasattr(self, '_nsapp') and self._nsapp:
-                logger.info("NSApp delegate initialized, status item ready")
-        except Exception as e:
-            logger.warning("Status item check: %s", e)
+        # Try to use icon for more reliable display, fallback to text
+        icon_path = Path(__file__).parent / "resources" / "menubar_icon.png"
+        if icon_path.exists():
+            super().__init__("MoltSpeak", icon=str(icon_path), quit_button=None)  # type: ignore
+            self.title = "MS"  # Set title as backup
+            logger.info("Using icon: %s", icon_path)
+        else:
+            super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+            self.title = "MS"
+            logger.info("Using text title: MS (no icon found)")
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
