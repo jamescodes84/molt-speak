@@ -7,12 +7,30 @@ Usage: python scripts/configure_elevenlabs.py
 """
 
 import sys
+import re
 from pathlib import Path
 
 # Add parent directory to path to import from src
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config.config_manager import ConfigManager
+
+
+def validate_api_key(key: str) -> bool:
+    """Validate that input looks like an ElevenLabs API key."""
+    # ElevenLabs keys start with sk_ and contain only alphanumeric + underscore
+    if not key:
+        return False
+    # Must start with sk_
+    if not key.startswith("sk_"):
+        return False
+    # Only allow alphanumeric and underscore (no shell metacharacters)
+    if not re.match(r'^[a-zA-Z0-9_]+$', key):
+        return False
+    # Reasonable length (ElevenLabs keys are typically 40-60 chars)
+    if len(key) < 20 or len(key) > 100:
+        return False
+    return True
 
 
 def main():
@@ -30,6 +48,12 @@ def main():
 
     if not api_key:
         print("API key cannot be empty")
+        sys.exit(1)
+
+    # Validate format before doing anything with it
+    if not validate_api_key(api_key):
+        print("Invalid API key format.")
+        print("ElevenLabs keys start with 'sk_' and contain only letters, numbers, and underscores.")
         sys.exit(1)
 
     # Verify API key
