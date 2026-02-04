@@ -46,9 +46,10 @@ class VoiceLoopMenuBar(rumps.App):
         # Try to use icon for more reliable display, fallback to text
         icon_path = Path(__file__).parent / "resources" / "menubar_icon.png"
         if icon_path.exists():
-            super().__init__("MoltSpeak", icon=str(icon_path), quit_button=None)  # type: ignore
+            # template=True makes icon work in dark/light mode automatically
+            super().__init__("MoltSpeak", icon=str(icon_path), template=True, quit_button=None)  # type: ignore
             self.title = "MS"  # Set title as backup
-            logger.info("Using icon: %s", icon_path)
+            logger.info("Using icon (template mode): %s", icon_path)
         else:
             super().__init__("MoltSpeak", quit_button=None)  # type: ignore
             self.title = "MS"
