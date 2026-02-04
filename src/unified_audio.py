@@ -41,18 +41,6 @@ class UnifiedAudioSystem:
 
         logger.info("Initializing Unified Audio System")
 
-    def get_voice_setting(self):
-        """Read voice setting from config file."""
-        voice_file = self.runtime_dir / "voice.conf"
-        if voice_file.exists():
-            try:
-                voice = voice_file.read_text().strip()
-                if voice:
-                    return voice
-            except Exception:
-                pass
-        return "Samantha"  # Default voice
-
     def start_mouth(self):
         """Start OpenClaw Mouth (TTS output) subprocess."""
         mouth_dir = self.project_root / "open_mouth"
@@ -62,16 +50,15 @@ class UnifiedAudioSystem:
         # Use main project venv if available, otherwise system python
         python_cmd = str(main_venv) if main_venv.exists() else "python3"
 
-        # Get voice setting
-        voice = self.get_voice_setting()
-
         # Open log file for Mouth (project-local)
         mouth_log = self.logs_dir / "mouth.log"
         mouth_log_file = open(mouth_log, "a")
 
-        logger.info(f"Starting OpenClaw Mouth (TTS with voice: {voice})...")
+        # Let MouthPipeline read TTS provider from ConfigManager
+        # (no --local flag = use cloud TTS based on config)
+        logger.info("Starting OpenClaw Mouth (TTS based on config)...")
         self.mouth_process = subprocess.Popen(
-            [python_cmd, str(mouth_main), "--local", "--voice", voice],
+            [python_cmd, str(mouth_main)],
             cwd=str(mouth_dir),
             stdout=mouth_log_file,
             stderr=subprocess.STDOUT

@@ -118,65 +118,81 @@ class VoiceLoopMenuBar(rumps.App):
         self.menu.add(provider_menu)
         self.menu.add(rumps.separator)
 
-        # Voice selection submenu
+        # Voice selection submenu - varies based on TTS provider
         voice_menu = rumps.MenuItem("🎤 Voice")
-        current_voice = self.get_current_voice()
 
-        # Voice categories
-        voice_categories = [
-            ("🇺🇸 American", [
-                ("Samantha", "Female (default)"),
-                ("Alex", "Male (default)"),
-                ("Tom", "Male"),
-                ("Allison", "Female"),
-                ("Ava", "Female"),
-                ("Zoe", "Female"),
-                ("Nicky", "Female"),
-                ("Susan", "Female"),
-                ("Evan", "Male"),
-                ("Nathan", "Male"),
-            ]),
-            ("🇬🇧 British", [
-                ("Daniel", "Male"),
-                ("Kate", "Female"),
-                ("Oliver", "Male"),
-                ("Serena", "Female"),
-                ("Stephanie", "Female"),
-            ]),
-            ("🇦🇺 Australian", [
-                ("Karen", "Female"),
-                ("Lee", "Male"),
-            ]),
-            ("🇮🇪 Irish", [
-                ("Moira", "Female"),
-            ]),
-            ("🇿🇦 South African", [
-                ("Tessa", "Female"),
-            ]),
-            ("🇮🇳 Indian", [
-                ("Rishi", "Male"),
-                ("Veena", "Female"),
-            ]),
-            ("🌍 Other English", [
-                ("Fiona", "Scottish female"),
-                ("Martha", "Female"),
-            ]),
-        ]
+        if current_provider == "elevenlabs":
+            # ElevenLabs: show current voice and option to reconfigure
+            voice_id = self.config.elevenlabs_voice_id
+            voice_menu.add(rumps.MenuItem(
+                f"✓ ElevenLabs Voice: {voice_id[:20]}...",
+                callback=None
+            ))
+            voice_menu.add(rumps.separator)
+            voice_menu.add(rumps.MenuItem(
+                "⚙️  Change Voice (Configure ElevenLabs)...",
+                callback=self.on_configure_elevenlabs
+            ))
+            voice_menu.add(rumps.MenuItem(
+                "🔊 Test Voice",
+                callback=self.on_test_elevenlabs_voice
+            ))
+        else:
+            # Edge-TTS: show Edge-TTS voices
+            current_voice = self.config.preferred_voice
 
-        for category_name, voices in voice_categories:
-            category_menu = rumps.MenuItem(category_name)
-            for voice_name, description in voices:
-                check = "✓ " if voice_name == current_voice else "   "
-                item = rumps.MenuItem(
-                    f"{check}{voice_name} - {description}",
-                    callback=lambda s, v=voice_name: self.on_select_voice(v)
-                )
-                category_menu.add(item)
-            voice_menu.add(category_menu)
+            # Edge-TTS voice categories
+            voice_categories = [
+                ("🇺🇸 American", [
+                    ("en-US-ChristopherNeural", "Male (default)"),
+                    ("en-US-AriaNeural", "Female"),
+                    ("en-US-JennyNeural", "Female"),
+                    ("en-US-GuyNeural", "Male"),
+                    ("en-US-DavisNeural", "Male"),
+                    ("en-US-AmberNeural", "Female"),
+                    ("en-US-AnaNeural", "Female child"),
+                    ("en-US-BrandonNeural", "Male"),
+                    ("en-US-CoraNeural", "Female"),
+                    ("en-US-EricNeural", "Male"),
+                ]),
+                ("🇬🇧 British", [
+                    ("en-GB-RyanNeural", "Male"),
+                    ("en-GB-SoniaNeural", "Female"),
+                    ("en-GB-LibbyNeural", "Female"),
+                    ("en-GB-ThomasNeural", "Male"),
+                    ("en-GB-MaisieNeural", "Female child"),
+                ]),
+                ("🇦🇺 Australian", [
+                    ("en-AU-NatashaNeural", "Female"),
+                    ("en-AU-WilliamNeural", "Male"),
+                ]),
+                ("🇮🇪 Irish", [
+                    ("en-IE-EmilyNeural", "Female"),
+                    ("en-IE-ConnorNeural", "Male"),
+                ]),
+                ("🇿🇦 South African", [
+                    ("en-ZA-LeahNeural", "Female"),
+                    ("en-ZA-LukeNeural", "Male"),
+                ]),
+                ("🇮🇳 Indian", [
+                    ("en-IN-NeerjaNeural", "Female"),
+                    ("en-IN-PrabhatNeural", "Male"),
+                ]),
+            ]
 
-        voice_menu.add(rumps.separator)
-        voice_menu.add(rumps.MenuItem("🔊 Test Current Voice", callback=self.on_test_voice))
-        voice_menu.add(rumps.MenuItem("📋 List All System Voices", callback=self.on_list_voices))
+            for category_name, voices in voice_categories:
+                category_menu = rumps.MenuItem(category_name)
+                for voice_name, description in voices:
+                    check = "✓ " if voice_name == current_voice else "   "
+                    item = rumps.MenuItem(
+                        f"{check}{voice_name.split('-')[-1]} - {description}",
+                        callback=lambda s, v=voice_name: self.on_select_edge_voice(v)
+                    )
+                    category_menu.add(item)
+                voice_menu.add(category_menu)
+
+            voice_menu.add(rumps.separator)
+            voice_menu.add(rumps.MenuItem("🔊 Test Current Voice", callback=self.on_test_edge_voice))
 
         self.menu.add(voice_menu)
 
@@ -190,17 +206,13 @@ class VoiceLoopMenuBar(rumps.App):
         # Quit
         self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
 
-    def on_select_voice(self, voice_name):
-        """Select a specific voice from the menu."""
+    def on_select_edge_voice(self, voice_name):
+        """Select an Edge-TTS voice from the menu."""
         try:
             # Save voice setting to config file
             self.config.preferred_voice = voice_name
-            # Also save to runtime/voice.conf for backwards compatibility
-            voice_file = self.runtime_dir / "voice.conf"
-            voice_file.write_text(voice_name)
-            # Update cached value
             self._current_voice = voice_name
-            logger.info(f"Voice selected: {voice_name}")
+            logger.info(f"Edge-TTS voice selected: {voice_name}")
         except Exception as e:
             logger.error(f"Failed to save voice setting: {e}")
             rumps.alert("Error", f"Failed to save voice setting: {e}")
@@ -209,32 +221,61 @@ class VoiceLoopMenuBar(rumps.App):
         # Update menu immediately to show the change
         self.build_menu()
 
-        # Restart voice loop if running (no popup notification)
+        # Restart voice loop if running
         if self.mouth_running:
             import threading
             def restart_voice_loop():
                 try:
-                    # Stop current voice loop
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                     subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
-                    # Start with new voice
                     start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
-                    logger.info(f"Voice loop restarted with voice: {voice_name}")
+                    logger.info(f"Voice loop restarted with Edge-TTS voice: {voice_name}")
 
-                    # Test the new voice by writing a test message
-                    time.sleep(0.5)  # Brief delay to let voice loop restart
+                    # Test the new voice
+                    time.sleep(0.5)
                     speech_file = self.speech_output_dir / "speech_output.txt"
                     try:
-                        speech_file.write_text("I've changed voices. How is this?")
+                        with open(speech_file, 'a') as f:
+                            f.write("I've changed voices. How does this sound?\n")
                         logger.info("Voice test message written to speech output")
                     except Exception as e:
                         logger.error(f"Failed to write voice test message: {e}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_test_edge_voice(self, sender):
+        """Test the current Edge-TTS voice."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "Start Molt Speak first to test the voice.")
+            return
+
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write("This is a test of the current Edge TTS voice.\n")
+            logger.info("Voice test message written")
+        except Exception as e:
+            logger.error(f"Failed to test voice: {e}")
+            rumps.alert("Error", f"Failed to test voice: {e}")
+
+    def on_test_elevenlabs_voice(self, sender):
+        """Test the current ElevenLabs voice."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "Start Molt Speak first to test the voice.")
+            return
+
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write("This is a test of the ElevenLabs voice.\n")
+            logger.info("ElevenLabs voice test message written")
+        except Exception as e:
+            logger.error(f"Failed to test voice: {e}")
+            rumps.alert("Error", f"Failed to test voice: {e}")
 
     def on_select_provider(self, provider: str):
         """Select TTS provider (edge-tts or elevenlabs)."""
