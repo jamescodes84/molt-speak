@@ -22,7 +22,6 @@ from ..services.tts_service import TTSService
 from ..services.tts_factory import TTSFactory
 from ..utils.openclaw_notifier import OpenClawNotifier
 from ..utils.logging_utils import log_speaking, log_queued, log_error
-from ...src.config.config_manager import ConfigManager
 
 # Load ConfigManager from project root (avoids src package conflict)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
