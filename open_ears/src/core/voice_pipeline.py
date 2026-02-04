@@ -60,6 +60,7 @@ class UltraFastVoicePipeline:
         self.sample_rate = sample_rate
         self.silence_duration = silence_duration
         self.speech_threshold = speech_threshold
+        self.speaking_threshold = speech_threshold * 5  # Much higher threshold during TTS to prevent bleed
         self.enable_tts = enable_tts
         self.check_interval = 0.1  # Check audio every 100ms for responsiveness
 
@@ -159,27 +160,23 @@ class UltraFastVoicePipeline:
         while self.running:
             time.sleep(self.check_interval)  # Check every 100ms for responsiveness
 
-            # Skip if we're speaking (TTS active OR OpenClaw Mouth is speaking)
-            if self.is_speaking_tts or self.mouth_monitor.is_agent_speaking():
-                with self.buffer_lock:
-                    self.audio_buffer = []  # Clear buffer to avoid echo
-                self.accumulated_audio = []
-                self.is_recording = False
-                self.last_speech_time = None
-                self.ears_notifier.notify_paused()
-                continue
+            # Use much higher threshold when agent is speaking to prevent TTS bleed
+            agent_speaking = self.is_speaking_tts or self.mouth_monitor.is_agent_speaking()
+            current_threshold = self.speaking_threshold if agent_speaking else self.speech_threshold
 
             # Get buffered audio
             with self.buffer_lock:
                 if len(self.audio_buffer) == 0:
+                    if agent_speaking:
+                        self.ears_notifier.notify_paused()
                     continue
 
                 audio_data = np.concatenate(self.audio_buffer)
                 self.audio_buffer = []
 
-            # Check amplitude
+            # Check amplitude against current threshold
             max_amp = np.max(np.abs(audio_data)) * 10000
-            has_speech = max_amp >= self.speech_threshold
+            has_speech = max_amp >= current_threshold
 
             if has_speech:
                 # Speech detected - update last speech time and accumulate audio
