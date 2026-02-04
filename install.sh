@@ -9,7 +9,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Installation directory
-INSTALL_DIR="$HOME/open-claw-workspace/molt-speak/app"
+INSTALL_DIR="$HOME/openclaw-workspace/molt-speak/app"
 REPO_URL="https://github.com/jamescodes84/molt-speak.git"
 BRANCH="${BRANCH:-develop}"  # Default to develop branch (main uses main)
 
@@ -136,7 +136,7 @@ LAUNCHER_SCRIPT="/usr/local/bin/molt-speak"
 sudo tee "$LAUNCHER_SCRIPT" > /dev/null << 'EOF'
 #!/bin/bash
 
-INSTALL_DIR="$HOME/open-claw-workspace/molt-speak/app"
+INSTALL_DIR="$HOME/openclaw-workspace/molt-speak/app"
 
 case "$1" in
     start)

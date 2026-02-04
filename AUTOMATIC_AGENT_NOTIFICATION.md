@@ -9,7 +9,7 @@ The integration coordinator now automatically notifies agents when the voice loo
 When you run `./start_integration.sh`, the coordinator:
 
 1. **Reads** `AGENT_INSTRUCTIONS.txt`
-2. **Creates** `~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active`
+2. **Creates** `~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active`
 3. **Writes** the full instructions with activation metadata
 
 The agent can detect this file and automatically enable voice capabilities.
@@ -18,9 +18,9 @@ The agent can detect this file and automatically enable voice capabilities.
 
 When the coordinator stops (Ctrl+C or signal), it:
 
-1. **Creates** `~/open-claw-workspace/molt-speak/app/runtime/agent_shutdown.signal`
+1. **Creates** `~/openclaw-workspace/molt-speak/app/runtime/agent_shutdown.signal`
 2. **Writes** a shutdown message declaring instructions void
-3. **Removes** `~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active`
+3. **Removes** `~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active`
 4. **Waits** 1 second for agent to read the message
 5. **Cleans up** all messenger files
 
@@ -28,8 +28,8 @@ When the coordinator stops (Ctrl+C or signal), it:
 
 | File | Created When | Contains | Purpose |
 |------|--------------|----------|---------|
-| `~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active` | Startup | Full AGENT_INSTRUCTIONS.txt + metadata | Agent learns how to use voice loop |
-| `~/open-claw-workspace/molt-speak/app/runtime/agent_shutdown.signal` | Shutdown | Shutdown message | Agent knows voice loop stopped |
+| `~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active` | Startup | Full AGENT_INSTRUCTIONS.txt + metadata | Agent learns how to use voice loop |
+| `~/openclaw-workspace/molt-speak/app/runtime/agent_shutdown.signal` | Shutdown | Shutdown message | Agent knows voice loop stopped |
 
 ## Agent Integration
 
@@ -40,8 +40,8 @@ from pathlib import Path
 
 def check_voice_loop():
     """Check if voice loop is active."""
-    active_file = Path.home() / "open-claw-workspace" / "molt-speak" / "app" / "runtime" / "agent_instructions.active"
-    shutdown_file = Path.home() / "open-claw-workspace" / "molt-speak" / "app" / "runtime" / "agent_shutdown.signal"
+    active_file = Path.home() / "openclaw-workspace" / "molt-speak" / "app" / "runtime" / "agent_instructions.active"
+    shutdown_file = Path.home() / "openclaw-workspace" / "molt-speak" / "app" / "runtime" / "agent_shutdown.signal"
 
     # Check for shutdown message
     if shutdown_file.exists():
@@ -79,18 +79,18 @@ if check_voice_loop():
 ============================================================
 OpenClaw Voice Loop Coordinator
 ============================================================
-Monitoring: ~/open-claw-workspace/molt-speak/app/runtime/mouth_status.txt
-Signal file: ~/open-claw-workspace/molt-speak/app/runtime/ears_pause.signal
+Monitoring: ~/openclaw-workspace/molt-speak/app/runtime/mouth_status.txt
+Signal file: ~/openclaw-workspace/molt-speak/app/runtime/ears_pause.signal
 
 ============================================================
 📢 AGENT INSTRUCTIONS ACTIVATED
 ============================================================
-Instructions file: ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
+Instructions file: ~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active
 Agent should read this file to learn about voice loop usage
 ============================================================
 
 ✅ Agent instructions sent
-   Agent should read: ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
+   Agent should read: ~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active
 
 ✅ Coordinator started
 ```
@@ -130,7 +130,7 @@ Agent has been notified of shutdown
 ============================================================
 
 ✅ Agent shutdown notification sent
-   Agent should read: ~/open-claw-workspace/molt-speak/app/runtime/agent_shutdown.signal
+   Agent should read: ~/openclaw-workspace/molt-speak/app/runtime/agent_shutdown.signal
 
 ✅ Coordinator stopped
 ```
@@ -147,7 +147,7 @@ VOICE LOOP DEACTIVATED - 2026-02-01T15:45:00.654321
 The OpenClaw voice loop has been SHUT DOWN.
 
 PREVIOUS INSTRUCTIONS ARE NOW VOID:
-  - You can no longer send voice output via ~/open-claw-workspace/molt-speak/app/runtime/speech_output.txt
+  - You can no longer send voice output via ~/openclaw-workspace/molt-speak/app/runtime/speech_output.txt
   - You may no longer receive voice input automatically
   - Echo prevention is no longer active
 ...
@@ -221,7 +221,7 @@ SYSTEMS STOPPED:
   ❌ Voice input may not be available
 
 PREVIOUS INSTRUCTIONS ARE NOW VOID:
-  - You can no longer send voice output via ~/open-claw-workspace/molt-speak/app/runtime/speech_output.txt
+  - You can no longer send voice output via ~/openclaw-workspace/molt-speak/app/runtime/speech_output.txt
   - You may no longer receive voice input automatically
   - Echo prevention is no longer active
 =============================================================================
@@ -236,7 +236,7 @@ PREVIOUS INSTRUCTIONS ARE NOW VOID:
 ./start_integration.sh
 
 # Terminal 2
-cat ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
+cat ~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active
 # Should show full instructions with activation header
 ```
 
@@ -246,10 +246,10 @@ cat ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
 # Terminal 1 (press Ctrl+C in coordinator)
 
 # Terminal 2
-cat ~/open-claw-workspace/molt-speak/app/runtime/agent_shutdown.signal
+cat ~/openclaw-workspace/molt-speak/app/runtime/agent_shutdown.signal
 # Should show shutdown message
 
-ls ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
+ls ~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active
 # Should not exist (removed on shutdown)
 ```
 
@@ -260,8 +260,8 @@ ls ~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active
 python3 << 'EOF'
 from pathlib import Path
 
-active = Path.home() / "open-claw-workspace" / "molt-speak" / "app" / "runtime" / "agent_instructions.active"
-shutdown = Path.home() / "open-claw-workspace" / "molt-speak" / "app" / "runtime" / "agent_shutdown.signal"
+active = Path.home() / "openclaw-workspace" / "molt-speak" / "app" / "runtime" / "agent_instructions.active"
+shutdown = Path.home() / "openclaw-workspace" / "molt-speak" / "app" / "runtime" / "agent_shutdown.signal"
 
 if shutdown.exists():
     print("🔴 SHUTDOWN DETECTED")
@@ -278,7 +278,7 @@ EOF
 
 No configuration needed! The messenger automatically:
 - Finds AGENT_INSTRUCTIONS.txt (in project root)
-- Uses ~/open-claw-workspace/molt-speak/app/runtime directory (same as other systems)
+- Uses ~/openclaw-workspace/molt-speak/app/runtime directory (same as other systems)
 - Manages file lifecycle automatically
 
 ## Error Handling
@@ -309,4 +309,4 @@ The automatic agent notification system makes voice loop integration seamless:
 - ✅ **Clean state management** via file lifecycle
 - ✅ **Production-ready** with proper error handling
 
-Agents just need to check for `~/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active` on startup!
+Agents just need to check for `~/openclaw-workspace/molt-speak/app/runtime/agent_instructions.active` on startup!

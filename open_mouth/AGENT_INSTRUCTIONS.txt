@@ -40,7 +40,7 @@ It's that simple. Just write text to a file, and it will be spoken.
 
 SPEAKING SIGNAL FOR COORDINATION:
   - The system automatically creates a signal file at:
-    ~/open-claw-workspace/molt-speak/app/runtime/mouth_status.txt
+    ~/openclaw-workspace/molt-speak/app/runtime/mouth_status.txt
   - This file indicates when you're speaking (status: SPEAKING, IDLE, etc.)
   - OpenClaw Ears monitors this to pause listening while you speak
   - You don't need to do anything - it's automatic!
@@ -53,7 +53,7 @@ STEP 1: START THE SPEECH SYSTEM
 
 Open a terminal window and run:
 
-    cd ~/open-claw-workspace/molt-speak/app/open_mouth
+    cd ~/openclaw-workspace/molt-speak/app/open_mouth
     ./start_speech_system.sh
 
 You should see a terminal interface showing:

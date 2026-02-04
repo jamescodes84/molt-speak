@@ -59,7 +59,7 @@ You hear ← Mouth speaks ← Agent writes response
 
 ## File Locations
 
-All runtime files are stored in `~/open-claw-workspace/molt-speak/app/runtime/`:
+All runtime files are stored in `~/openclaw-workspace/molt-speak/app/runtime/`:
 
 | File | Purpose |
 |------|---------|
@@ -91,14 +91,14 @@ with open("/tmp/speak.txt", "a") as f:
 ### Can't hear speech
 
 1. Check your system volume
-2. Verify the speech file exists: `ls ~/open-claw-workspace/molt-speak/app/runtime/speech_output.txt`
+2. Verify the speech file exists: `ls ~/openclaw-workspace/molt-speak/app/runtime/speech_output.txt`
 
 ### Permission denied errors
 
 Run a clean reinstall:
 ```bash
 molt-speak quit
-rm -rf ~/open-claw-workspace/molt-speak/app
+rm -rf ~/openclaw-workspace/molt-speak/app
 molt-speak update
 molt-speak start
 ```
@@ -113,7 +113,7 @@ The system should automatically pause your mic when the agent speaks. If you hea
 
 ```bash
 molt-speak quit
-rm -rf ~/open-claw-workspace/molt-speak/app
+rm -rf ~/openclaw-workspace/molt-speak/app
 sudo rm /usr/local/bin/molt-speak
 ```
 
