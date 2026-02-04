@@ -78,7 +78,7 @@ class VoiceLoopMenuBar(rumps.App):
 
         # Initialize rumps app with a simple title first
         super().__init__("MoltSpeak", quit_button=None)  # type: ignore
-        self.title = "MS"
+        self.title = "🦞"
 
         # Build initial menu
         self.build_menu()
@@ -173,9 +173,9 @@ class VoiceLoopMenuBar(rumps.App):
 
         # Method 2: Simple title (fallback)
         if not success:
-            self.title = "MS"
+            self.title = "🦞"
             success = True
-            logger.info("Using simple title: MS")
+            logger.info("Using simple title: 🦞")
 
         # Force visibility regardless of method
         self._force_status_item_visible()
@@ -192,8 +192,8 @@ class VoiceLoopMenuBar(rumps.App):
                     # Get the button and set title directly
                     button = status_item.button()
                     if button:
-                        button.setTitle_("🎤 MS")
-                        logger.info("Button title set to: 🎤 MS")
+                        button.setTitle_("🦞")
+                        logger.info("Button title set to: 🦞")
 
                     # Configure status item
                     status_item.setVisible_(True)
@@ -717,9 +717,9 @@ class VoiceLoopMenuBar(rumps.App):
             all_running = self.integration_running and self.mouth_running and self.ears_running
 
             if all_running:
-                self.title = "MS●"  # Dot for active
+                self.title = "🦞"  # Lobster for active
             else:
-                self.title = "MS○"  # Empty circle for inactive
+                self.title = "🦞💤"  # Sleeping lobster for inactive
 
             # Rebuild menu if anything changed
             if (integration_was_running != self.integration_running or
