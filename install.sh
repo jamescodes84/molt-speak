@@ -274,6 +274,11 @@ case "$1" in
         rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
 
         echo "✓ OpenSpeak updated"
+        echo ""
+        echo "Commands:"
+        echo "  molt-speak start   - Start the voice loop"
+        echo "  molt-speak update  - Update to latest version"
+        echo "  molt-speak elapi   - Set ElevenLabs API key"
         ;;
 
     elapi)
@@ -348,4 +353,5 @@ echo -e "  ${YELLOW}molt-speak start${NC}   - Start the voice loop"
 echo -e "  ${YELLOW}molt-speak stop${NC}    - Stop the voice loop"
 echo -e "  ${YELLOW}molt-speak status${NC}  - Check status"
 echo -e "  ${YELLOW}molt-speak update${NC}  - Update to latest version"
+echo -e "  ${YELLOW}molt-speak elapi${NC}   - Set ElevenLabs API key"
 echo ""
