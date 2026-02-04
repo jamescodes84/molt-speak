@@ -183,19 +183,22 @@ class VoiceLoopMenuBar(rumps.App):
     def _try_direct_status_item(self) -> bool:
         """Try creating status item directly via AppKit."""
         try:
-            from AppKit import NSStatusBar, NSVariableStatusItemLength, NSFont
+            from AppKit import NSStatusBar, NSFont
 
             # Wait for rumps to create its status item, then configure it
             if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
                 status_item = self._nsapp.nsstatusitem
                 if status_item:
-                    # Set a simple title
-                    status_item.setTitle_("MS")
-                    # Use system font for better compatibility
+                    # Get the button and set title directly
                     button = status_item.button()
                     if button:
-                        button.setFont_(NSFont.menuBarFontOfSize_(0))
+                        button.setTitle_("🎤 MS")
+                        logger.info("Button title set to: 🎤 MS")
+
+                    # Configure status item
                     status_item.setVisible_(True)
+                    status_item.setLength_(-1)  # Variable length
+
                     logger.info("Direct status item setup successful")
                     return True
         except Exception as e:
