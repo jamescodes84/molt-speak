@@ -8,12 +8,35 @@ Usage: python scripts/configure_elevenlabs.py
 
 import sys
 import re
+import subprocess
 from pathlib import Path
 
 # Add parent directory to path to import from src
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config.config_manager import ConfigManager
+
+
+def ensure_elevenlabs_installed():
+    """Check if elevenlabs is installed, install if missing."""
+    try:
+        import elevenlabs  # noqa: F401
+        return True
+    except ImportError:
+        print("ElevenLabs package not installed.")
+        print("Installing elevenlabs...")
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "elevenlabs>=1.0.0"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            print("✓ ElevenLabs package installed")
+            return True
+        except subprocess.CalledProcessError:
+            print("Failed to install elevenlabs package.")
+            print("Try: pip install elevenlabs")
+            return False
 
 
 def validate_api_key(key: str) -> bool:
@@ -40,6 +63,11 @@ def main():
     print("       ElevenLabs API Key Setup")
     print("=" * 50)
     print()
+
+    # Ensure elevenlabs package is available
+    if not ensure_elevenlabs_installed():
+        sys.exit(1)
+
     print("Get your API key at: https://elevenlabs.io")
     print()
 
