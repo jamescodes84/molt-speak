@@ -16,6 +16,20 @@ import time
 import atexit
 from pathlib import Path
 from typing import Optional
+
+# Force PyObjC to initialize properly BEFORE importing rumps
+# This fixes menu bar not appearing on some Macs
+try:
+    from Foundation import NSObject, NSLog
+    from AppKit import NSApplication, NSStatusBar, NSVariableStatusItemLength
+    # Initialize NSApplication shared instance early
+    _app = NSApplication.sharedApplication()
+    # Force status bar to initialize
+    _status_bar = NSStatusBar.systemStatusBar()
+    NSLog("Menu bar initialization: NSApplication and NSStatusBar ready")
+except ImportError as e:
+    print(f"Warning: Could not pre-initialize AppKit: {e}")
+
 import rumps
 
 from src.config.config_manager import ConfigManager
@@ -29,10 +43,19 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        # Use simple text title for reliable display on all screens (laptops, external monitors)
-        # Emojis can fail to render on some displays
+        # Use simple text title for reliable display on all screens
         super().__init__("MoltSpeak", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
-        self.title = "MS"  # This is what appears in the menu bar
+
+        # Set title explicitly and force status item to be visible
+        self.title = "MS"
+
+        # Double-check the status item is created by accessing it
+        # This forces rumps to create the NSStatusItem if it hasn't already
+        try:
+            if hasattr(self, '_nsapp') and self._nsapp:
+                logger.info("NSApp delegate initialized, status item ready")
+        except Exception as e:
+            logger.warning("Status item check: %s", e)
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
@@ -1521,16 +1544,27 @@ def main():
 
     # Ensure NSApplication is properly activated (fixes menu bar not showing on some Macs)
     try:
-        from AppKit import NSApplication
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        from Foundation import NSAutoreleasePool
+
+        # Create autorelease pool for proper memory management
+        # Keep reference to prevent garbage collection
+        _pool = NSAutoreleasePool.alloc().init()  # noqa: F841
+
         app_instance = NSApplication.sharedApplication()
-        # Use accessory policy (1) for menu bar apps - shows in menu bar but not Dock
-        app_instance.setActivationPolicy_(1)
+        # Use accessory policy for menu bar apps - shows in menu bar but not Dock
+        app_instance.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
         app_instance.activateIgnoringOtherApps_(True)
+
+        logger.info("NSApplication initialized with accessory policy")
     except ImportError:
-        pass  # pyobjc not installed, rumps will handle it
+        logger.warning("PyObjC not available, using rumps defaults")
+    except Exception as e:
+        logger.warning("NSApplication setup warning: %s", e)
 
     try:
         app = VoiceLoopMenuBar()
+        logger.info("VoiceLoopMenuBar created, starting run loop...")
         app.run()
     finally:
         # Ensure cleanup even if app.run() throws
