@@ -1519,6 +1519,16 @@ def main():
     # Only handle SIGTERM, not SIGINT (to avoid interfering with parent process)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Ensure NSApplication is properly activated (fixes menu bar not showing on some Macs)
+    try:
+        from AppKit import NSApplication
+        app_instance = NSApplication.sharedApplication()
+        # Use accessory policy (1) for menu bar apps - shows in menu bar but not Dock
+        app_instance.setActivationPolicy_(1)
+        app_instance.activateIgnoringOtherApps_(True)
+    except ImportError:
+        pass  # pyobjc not installed, rumps will handle it
+
     try:
         app = VoiceLoopMenuBar()
         app.run()
