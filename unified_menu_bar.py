@@ -43,6 +43,35 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
+        # Paths - use project-local directories (resolve to absolute paths)
+        # MUST be set BEFORE calling super().__init__ for menu building
+        self.project_dir = Path(__file__).parent.resolve()
+        self.runtime_dir = self.project_dir / "runtime"
+        self.logs_dir = self.project_dir / "logs"
+
+        # Speech output directory - use project runtime directory
+        self.speech_output_dir = self.runtime_dir
+
+        # Ensure directories exist with proper permissions
+        self.runtime_dir.mkdir(exist_ok=True)
+        self.logs_dir.mkdir(exist_ok=True)
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+
+        # PID files (in runtime dir)
+        self.integration_pid_file = self.runtime_dir / "integration.pid"
+        self.mouth_pid_file = self.runtime_dir / "mouth.pid"
+        self.ears_pid_file = self.runtime_dir / "ears.pid"
+
+        # State
+        self.integration_running = False
+        self.mouth_running = False
+        self.ears_running = False
+        self.initializing = True  # Flag to prevent crashes during startup
+        self._current_voice = None  # Cache for current voice selection
+
+        # Configuration manager
+        self.config = ConfigManager()
+
         # Detect display configuration for adaptive menu bar setup
         self._display_info = self._detect_display_config()
         logger.info("Display config: %s", self._display_info)
@@ -51,11 +80,28 @@ class VoiceLoopMenuBar(rumps.App):
         super().__init__("MoltSpeak", quit_button=None)  # type: ignore
         self.title = "MS"
 
+        # Build initial menu
+        self.build_menu()
+
+        # Start status update timer
+        self.timer = rumps.Timer(self.update_status, 2.0)
+        self.timer.start()
+
         # Schedule status item fix after app starts (rumps creates status item during run())
         self._status_fix_timer = rumps.Timer(self._delayed_status_fix, 0.5)
         self._status_fix_timer.start()
 
+        # Auto-start voice loop after a short delay using threading
+        import threading
+        def delayed_start():
+            # Must set initializing to False BEFORE calling auto_start
+            # otherwise on_start_all will return early due to the guard
+            self.initializing = False
+            self.auto_start_voice_loop()
+        threading.Timer(1.0, delayed_start).start()
+
         logger.info("Menu bar app initialized with title: %s", self.title)
+        logger.info("Unified Voice Loop Menu Bar initialized")
 
     def _delayed_status_fix(self, timer):
         """Fix status item visibility after app has fully started."""
@@ -78,26 +124,38 @@ class VoiceLoopMenuBar(rumps.App):
         }
         try:
             from AppKit import NSScreen
+            import subprocess
+
+            # Check if this is a laptop by looking for battery
+            result = subprocess.run(
+                ["system_profiler", "SPPowerDataType"],
+                capture_output=True, text=True, timeout=5
+            )
+            is_laptop = "Battery" in result.stdout
+            info["is_laptop"] = is_laptop
+
             screens = NSScreen.screens()
-            for screen in screens:
+            logger.info(f"Detected {len(screens)} screen(s), is_laptop={is_laptop}")
+
+            for i, screen in enumerate(screens):
+                desc = screen.deviceDescription()
+                # Try to get display name/info
+                screen_num = desc.get("NSScreenNumber", i)
                 frame = screen.frame()
+                logger.info(f"Screen {i}: {frame.size.width}x{frame.size.height}, screenNum={screen_num}")
 
-                # Heuristic: built-in laptop displays are usually smaller and specific resolutions
-                width = frame.size.width
-                height = frame.size.height
-
-                # Common laptop resolutions (scaled)
-                if width <= 1800 and height <= 1200:
-                    info["has_internal"] = True
-                    info["is_laptop"] = True
-                    if screen == NSScreen.mainScreen():
-                        info["main_display_internal"] = True
-                else:
-                    info["has_external"] = True
-
-            # If only one display and it matches laptop res, it's a laptop without external
-            if len(screens) == 1 and info["has_internal"]:
+            # If it's a laptop with only one screen, assume internal display
+            if is_laptop and len(screens) == 1:
+                info["has_internal"] = True
                 info["main_display_internal"] = True
+            elif is_laptop and len(screens) > 1:
+                # Multiple screens on laptop = has external
+                info["has_internal"] = True
+                info["has_external"] = True
+                # Main screen is likely external if using clamshell mode
+            else:
+                # Desktop Mac
+                info["has_external"] = True
 
         except Exception as e:
             logger.warning("Could not detect display config: %s", e)
@@ -157,52 +215,6 @@ class VoiceLoopMenuBar(rumps.App):
                     logger.info("Status item forced visible, length=-1")
         except Exception as e:
             logger.warning("Could not force status item visible: %s", e)
-
-        # Paths - use project-local directories (resolve to absolute paths)
-        self.project_dir = Path(__file__).parent.resolve()
-        self.runtime_dir = self.project_dir / "runtime"
-        self.logs_dir = self.project_dir / "logs"
-
-        # Speech output directory - use project runtime directory
-        self.speech_output_dir = self.runtime_dir
-
-        # Ensure directories exist with proper permissions
-        self.runtime_dir.mkdir(exist_ok=True)
-        self.logs_dir.mkdir(exist_ok=True)
-        self.speech_output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-
-        # PID files (in runtime dir)
-        self.integration_pid_file = self.runtime_dir / "integration.pid"
-        self.mouth_pid_file = self.runtime_dir / "mouth.pid"
-        self.ears_pid_file = self.runtime_dir / "ears.pid"
-
-        # State
-        self.integration_running = False
-        self.mouth_running = False
-        self.ears_running = False
-        self.initializing = True  # Flag to prevent crashes during startup
-        self._current_voice = None  # Cache for current voice selection
-
-        # Configuration manager
-        self.config = ConfigManager()
-
-        # Build initial menu
-        self.build_menu()
-
-        # Start status update timer
-        self.timer = rumps.Timer(self.update_status, 2.0)
-        self.timer.start()
-
-        # Auto-start voice loop after a short delay using threading
-        import threading
-        def delayed_start():
-            # Must set initializing to False BEFORE calling auto_start
-            # otherwise on_start_all will return early due to the guard
-            self.initializing = False
-            self.auto_start_voice_loop()
-        threading.Timer(1.0, delayed_start).start()
-
-        logger.info("Unified Voice Loop Menu Bar initialized")
 
     def build_menu(self):
         """Build the menu structure."""
