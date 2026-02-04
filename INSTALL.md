@@ -18,7 +18,7 @@ BRANCH=develop bash <(curl -fsSL https://raw.githubusercontent.com/jamescodes84/
 
 ## What Gets Installed
 
-- Molt Speak voice loop system at `~/.molt-speak`
+- Molt Speak voice loop system at `~/open-claw-workspace/molt-speak/app`
 - `molt-speak` command-line tool
 - All Python dependencies in a virtual environment
 - Required system dependencies (ffmpeg, portaudio)
@@ -81,6 +81,6 @@ The system will automatically switch between Edge-TTS (free) and ElevenLabs (pre
 
 ```bash
 # Remove installed files
-rm -rf ~/.molt-speak
+rm -rf ~/open-claw-workspace/molt-speak/app
 sudo rm /usr/local/bin/molt-speak
 ```

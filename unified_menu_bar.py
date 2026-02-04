@@ -36,8 +36,8 @@ class VoiceLoopMenuBar(rumps.App):
         self.runtime_dir = self.project_dir / "runtime"
         self.logs_dir = self.project_dir / "logs"
 
-        # Speech output directory - use hidden directory in user's home for reliable permissions
-        self.speech_output_dir = Path.home() / ".molt-speak" / "runtime"
+        # Speech output directory - use project runtime directory
+        self.speech_output_dir = self.runtime_dir
 
         # Ensure directories exist with proper permissions
         self.runtime_dir.mkdir(exist_ok=True)

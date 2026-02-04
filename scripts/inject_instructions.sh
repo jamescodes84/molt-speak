@@ -1,7 +1,7 @@
 #!/bin/bash
 # Manually inject agent instructions into openclaw terminal
 
-INSTRUCTIONS_FILE="$HOME/.molt-speak/runtime/agent_instructions.active"
+INSTRUCTIONS_FILE="$HOME/open-claw-workspace/molt-speak/app/runtime/agent_instructions.active"
 
 if [ ! -f "$INSTRUCTIONS_FILE" ]; then
     echo "Error: Instructions file not found"

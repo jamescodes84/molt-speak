@@ -229,7 +229,7 @@ def print_footer():
     print("  • Or use the menu bar app")
     print()
     print("To switch back to Edge-TTS (free), you can change the provider")
-    print("in the menu bar or edit ~/.molt-speak/runtime/molt_speak_config.json")
+    print("in the menu bar or edit ~/open-claw-workspace/molt-speak/app/runtime/molt_speak_config.json")
     print()
 
 

@@ -59,7 +59,7 @@ You hear ← Mouth speaks ← Agent writes response
 
 ## File Locations
 
-All runtime files are stored in `~/.molt-speak/runtime/`:
+All runtime files are stored in `~/open-claw-workspace/molt-speak/app/runtime/`:
 
 | File | Purpose |
 |------|---------|
@@ -72,15 +72,12 @@ All runtime files are stored in `~/.molt-speak/runtime/`:
 For your AI agent to speak, it writes to the speech output file:
 
 ```bash
-echo "Hello! How can I help you?" >> ~/.molt-speak/runtime/speech_output.txt
+echo "Hello! How can I help you?" >> /tmp/speak.txt
 ```
 
 Or in Python:
 ```python
-from pathlib import Path
-
-speech_file = Path.home() / ".molt-speak" / "runtime" / "speech_output.txt"
-with open(speech_file, "a") as f:
+with open("/tmp/speak.txt", "a") as f:
     f.write("Hello! How can I help you?\n")
 ```
 
@@ -94,14 +91,14 @@ with open(speech_file, "a") as f:
 ### Can't hear speech
 
 1. Check your system volume
-2. Verify the speech file exists: `ls ~/.molt-speak/runtime/speech_output.txt`
+2. Verify the speech file exists: `ls ~/open-claw-workspace/molt-speak/app/runtime/speech_output.txt`
 
 ### Permission denied errors
 
 Run a clean reinstall:
 ```bash
 molt-speak quit
-rm -rf ~/.molt-speak
+rm -rf ~/open-claw-workspace/molt-speak/app
 molt-speak update
 molt-speak start
 ```
@@ -116,7 +113,7 @@ The system should automatically pause your mic when the agent speaks. If you hea
 
 ```bash
 molt-speak quit
-rm -rf ~/.molt-speak
+rm -rf ~/open-claw-workspace/molt-speak/app
 sudo rm /usr/local/bin/molt-speak
 ```
 
