@@ -16,12 +16,11 @@ DEFAULT_PITCH = float(os.getenv("TTS_PITCH", "0.0"))
 
 # Input Configuration
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent  # open_speak root
-RUNTIME_DIR = PROJECT_DIR / "runtime"
+RUNTIME_DIR = Path.home() / ".molt-speak" / "runtime"
 
-# Speech output directory - use hidden directory in user's home for reliable permissions
-SPEECH_OUTPUT_DIR = Path.home() / ".molt-speak" / "runtime"
-INPUT_FILE = Path(os.getenv("INPUT_FILE", str(SPEECH_OUTPUT_DIR / "speech_output.txt")))
-CONFIG_FILE = SPEECH_OUTPUT_DIR / "molt_speak_config.json"
+# Speech output directory - uses runtime directory for reliable permissions
+SPEECH_OUTPUT_DIR = RUNTIME_DIR
+INPUT_FILE = Path(os.getenv("INPUT_FILE", str(RUNTIME_DIR / "speech_output.txt")))
 MONITOR_INTERVAL = float(os.getenv("MONITOR_INTERVAL", "0.1"))  # Check file every 0.1s
 
 # Status file for echo prevention coordination
@@ -43,8 +42,8 @@ DISPLAY_UPDATE_RATE = float(os.getenv("DISPLAY_UPDATE_RATE", "0.05"))  # 20Hz
 ENABLE_COLORS = os.getenv("ENABLE_COLORS", "true").lower() == "true"
 
 # System Paths
-RUNTIME_DIR.mkdir(exist_ok=True)
-INPUT_FILE.parent.mkdir(exist_ok=True)
+RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+INPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # Available voices (common Edge-TTS voices)
 AVAILABLE_VOICES = {

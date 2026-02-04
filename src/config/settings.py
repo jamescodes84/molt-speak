@@ -23,17 +23,19 @@ LOG_FILE: Optional[str] = os.getenv("LOG_FILE")
 # Project Directories
 # ============================================================================
 PROJECT_DIR: Path = Path(__file__).parent.parent.parent  # molt-speak root
-RUNTIME_DIR: Path = PROJECT_DIR / "runtime"
-RUNTIME_DIR.mkdir(exist_ok=True)
+RUNTIME_DIR: Path = Path.home() / ".molt-speak" / "runtime"
+RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
-# Speech output directory - use hidden directory in user's home for reliable permissions
-SPEECH_OUTPUT_DIR: Path = Path.home() / ".molt-speak" / "runtime"
-SPEECH_OUTPUT_DIR.mkdir(parents=True, exist_ok=True, mode=0o755)
+# Configuration file
+CONFIG_FILE: Path = RUNTIME_DIR / "molt_speak_config.json"
+
+# Speech output directory - uses runtime directory for reliable permissions
+SPEECH_OUTPUT_DIR: Path = RUNTIME_DIR
+# No need to mkdir since RUNTIME_DIR is already created above
 
 EARS_OUTPUT_FILE: Path = RUNTIME_DIR / "transcriptions.txt"
 MOUTH_STATUS_FILE: Path = RUNTIME_DIR / "mouth_status.txt"
 MOUTH_INPUT_FILE: Path = SPEECH_OUTPUT_DIR / "speech_output.txt"
-CONFIG_FILE: Path = SPEECH_OUTPUT_DIR / "molt_speak_config.json"
 
 # ============================================================================
 # Monitoring Configuration

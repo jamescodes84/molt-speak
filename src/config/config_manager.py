@@ -9,7 +9,10 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from .settings import CONFIG_FILE
+# Define CONFIG_FILE directly to avoid import issues when loaded via importlib
+RUNTIME_DIR = Path.home() / ".molt-speak" / "runtime"
+RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_FILE = RUNTIME_DIR / "molt_speak_config.json"
 
 
 class ConfigManager:

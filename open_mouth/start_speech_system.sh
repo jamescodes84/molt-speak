@@ -48,7 +48,7 @@ pip install --upgrade pip -q
 pip install -r requirements.txt -q
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
-# Create speech output directory - use hidden directory for reliable permissions
+# Create speech output directory in user's home
 SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
 if [ ! -d "$SPEECH_OUTPUT_DIR" ]; then
     echo -e "${YELLOW}Creating $SPEECH_OUTPUT_DIR...${NC}"
@@ -62,6 +62,7 @@ INPUT_FILE="$SPEECH_OUTPUT_DIR/speech_output.txt"
 if [ ! -f "$INPUT_FILE" ]; then
     echo -e "${YELLOW}Creating input file...${NC}"
     touch "$INPUT_FILE"
+    chmod 644 "$INPUT_FILE"
     echo -e "${GREEN}✓ Input file created at $INPUT_FILE${NC}"
 fi
 
