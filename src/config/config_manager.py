@@ -28,7 +28,7 @@ class ConfigManager:
         "elevenlabs_api_key": None,
         "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel (default)
         "elevenlabs_model": "eleven_turbo_v2_5",  # Turbo for low latency
-        "mic_sensitivity": "high"  # Options: "low", "medium", "high", "max"
+        "mic_sensitivity": "medium"  # Options: "low", "medium", "high", "max"
     }
 
     # Mic sensitivity levels map to speech thresholds
