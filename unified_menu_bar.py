@@ -43,17 +43,107 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        # Try to use icon for more reliable display, fallback to text
-        icon_path = Path(__file__).parent / "resources" / "menubar_icon.png"
-        if icon_path.exists():
-            # template=True makes icon work in dark/light mode automatically
-            super().__init__("MoltSpeak", icon=str(icon_path), template=True, quit_button=None)  # type: ignore
-            self.title = "MS"  # Set title as backup
-            logger.info("Using icon (template mode): %s", icon_path)
-        else:
-            super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+        # Detect display configuration for adaptive menu bar setup
+        display_info = self._detect_display_config()
+        logger.info("Display config: %s", display_info)
+
+        # Initialize rumps app
+        super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+
+        # Adaptive menu bar setup based on display type
+        self._setup_menu_bar_item(display_info)
+
+        logger.info("Menu bar app initialized with title: %s", self.title)
+
+    def _detect_display_config(self) -> dict:
+        """Detect display configuration to adapt menu bar behavior."""
+        info = {
+            "has_internal": False,
+            "has_external": False,
+            "is_laptop": False,
+            "main_display_internal": False,
+        }
+        try:
+            from AppKit import NSScreen
+            screens = NSScreen.screens()
+            for screen in screens:
+                frame = screen.frame()
+
+                # Heuristic: built-in laptop displays are usually smaller and specific resolutions
+                width = frame.size.width
+                height = frame.size.height
+
+                # Common laptop resolutions (scaled)
+                if width <= 1800 and height <= 1200:
+                    info["has_internal"] = True
+                    info["is_laptop"] = True
+                    if screen == NSScreen.mainScreen():
+                        info["main_display_internal"] = True
+                else:
+                    info["has_external"] = True
+
+            # If only one display and it matches laptop res, it's a laptop without external
+            if len(screens) == 1 and info["has_internal"]:
+                info["main_display_internal"] = True
+
+        except Exception as e:
+            logger.warning("Could not detect display config: %s", e)
+
+        return info
+
+    def _setup_menu_bar_item(self, display_info: dict):
+        """Set up menu bar item adaptively based on display configuration."""
+        # Try multiple approaches in order of reliability
+        success = False
+
+        # Method 1: Direct NSStatusItem manipulation (most reliable on problematic displays)
+        if display_info.get("main_display_internal") and not success:
+            success = self._try_direct_status_item()
+
+        # Method 2: Simple title (fallback)
+        if not success:
             self.title = "MS"
-            logger.info("Using text title: MS (no icon found)")
+            success = True
+            logger.info("Using simple title: MS")
+
+        # Force visibility regardless of method
+        self._force_status_item_visible()
+
+    def _try_direct_status_item(self) -> bool:
+        """Try creating status item directly via AppKit."""
+        try:
+            from AppKit import NSStatusBar, NSVariableStatusItemLength, NSFont
+
+            # Wait for rumps to create its status item, then configure it
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    # Set a simple title
+                    status_item.setTitle_("MS")
+                    # Use system font for better compatibility
+                    button = status_item.button()
+                    if button:
+                        button.setFont_(NSFont.menuBarFontOfSize_(0))
+                    status_item.setVisible_(True)
+                    logger.info("Direct status item setup successful")
+                    return True
+        except Exception as e:
+            logger.warning("Direct status item setup failed: %s", e)
+        return False
+
+    def _force_status_item_visible(self):
+        """Force the status item to be visible."""
+        try:
+            from AppKit import NSStatusBar
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    status_item.setVisible_(True)
+                    # Also ensure length is set
+                    status_item.setLength_(-1)  # Variable length
+                    logger.info("Status item forced visible, length=-1")
+        except Exception as e:
+            logger.warning("Could not force status item visible: %s", e)
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
