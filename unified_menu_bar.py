@@ -1451,14 +1451,14 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
         """Quit the menu bar app and stop all voice loop processes."""
         self.on_stop_all(None)
         force_cleanup()
-        # Force kill by pattern as backup
-        subprocess.run(["pkill", "-f", "unified_audio"], capture_output=True)
-        subprocess.run(["pkill", "-f", "voice_pipeline"], capture_output=True)
-        subprocess.run(["pkill", "-f", "mouth_pipeline"], capture_output=True)
+        # Force kill by pattern as backup (SIGKILL)
+        subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
         rumps.quit_application()
-        # Force exit if rumps.quit_application doesn't work
-        import sys
-        sys.exit(0)
+        # os._exit bypasses all cleanup and forces immediate termination
+        # This ensures we actually quit even if something is blocking
+        os._exit(0)
 
 
 def force_cleanup():

@@ -326,6 +326,26 @@ case "$1" in
         ./scripts/molt-speak-elapi.sh
         ;;
 
+    kill)
+        echo "Nuclear kill - terminating ALL molt-speak processes..."
+        # Kill by process name patterns (SIGKILL)
+        pkill -9 -f "unified_menu_bar" 2>/dev/null || true
+        pkill -9 -f "unified_audio" 2>/dev/null || true
+        pkill -9 -f "voice_pipeline" 2>/dev/null || true
+        pkill -9 -f "mouth_pipeline" 2>/dev/null || true
+        pkill -9 -f "open_ears" 2>/dev/null || true
+        pkill -9 -f "open_mouth" 2>/dev/null || true
+        pkill -9 -f "MoltSpeak" 2>/dev/null || true
+        pkill -9 -f "molt-speak" 2>/dev/null || true
+        # Kill any Python processes in the molt-speak directory
+        pkill -9 -f "$INSTALL_DIR" 2>/dev/null || true
+        # Clean up PID files
+        rm -f "$INSTALL_DIR/runtime/"*.pid 2>/dev/null || true
+        # Clean up status files
+        rm -f "$INSTALL_DIR/runtime/"*_status.txt 2>/dev/null || true
+        echo "✓ All molt-speak processes terminated"
+        ;;
+
     *)
         echo "OpenSpeak Voice Loop - molt-speak command"
         echo ""
@@ -335,6 +355,7 @@ case "$1" in
         echo "  start    - Open menu bar control (select voice & start)"
         echo "  stop     - Stop the voice loop (menu bar stays open)"
         echo "  quit     - Quit everything (voice loop + menu bar)"
+        echo "  kill     - Nuclear kill all processes (use if stuck)"
         echo "  status   - Check if voice loop is running"
         echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"
