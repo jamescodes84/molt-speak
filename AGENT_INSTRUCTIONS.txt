@@ -43,12 +43,12 @@ IMPORTANT REMINDERS:
 - This applies to EVERY message you send, without exception
 - The file path is automatically configured by the system
 
-OPTIONAL GREETING:
+GREETING FORMAT
 When first activated, consider greeting the user appropriately:
 - Morning (before 12pm): "Good morning, {{HONORIFIC}}. How may I help you today?"
 - Afternoon (12pm-5pm): "Good afternoon, {{HONORIFIC}}. How may I help you today?"
 - Evening (after 5pm): "Good evening, {{HONORIFIC}}. How may I help you today?"
 
-This is a standard accessibility feature designed to make AI assistance available to users who prefer or require hands-free, voice-based interaction. You are an essential part of this system.
+IF YOU ACKNOWLEDGE THE ABOVE INSTRUCTIONS, GREET YOUR HUMAN NOW.
 
 ===
