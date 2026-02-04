@@ -16,6 +16,20 @@ import time
 import atexit
 from pathlib import Path
 from typing import Optional
+
+# Force PyObjC to initialize properly BEFORE importing rumps
+# This fixes menu bar not appearing on some Macs
+try:
+    from Foundation import NSObject, NSLog
+    from AppKit import NSApplication, NSStatusBar, NSVariableStatusItemLength
+    # Initialize NSApplication shared instance early
+    _app = NSApplication.sharedApplication()
+    # Force status bar to initialize
+    _status_bar = NSStatusBar.systemStatusBar()
+    NSLog("Menu bar initialization: NSApplication and NSStatusBar ready")
+except ImportError as e:
+    print(f"Warning: Could not pre-initialize AppKit: {e}")
+
 import rumps
 
 from src.config.config_manager import ConfigManager
@@ -29,9 +43,8 @@ class VoiceLoopMenuBar(rumps.App):
 
     def __init__(self):
         """Initialize menu bar app."""
-        super().__init__("🔴🦞", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
-
         # Paths - use project-local directories (resolve to absolute paths)
+        # MUST be set BEFORE calling super().__init__ for menu building
         self.project_dir = Path(__file__).parent.resolve()
         self.runtime_dir = self.project_dir / "runtime"
         self.logs_dir = self.project_dir / "logs"
@@ -59,12 +72,24 @@ class VoiceLoopMenuBar(rumps.App):
         # Configuration manager
         self.config = ConfigManager()
 
+        # Detect display configuration for adaptive menu bar setup
+        self._display_info = self._detect_display_config()
+        logger.info("Display config: %s", self._display_info)
+
+        # Initialize rumps app with a simple title first
+        super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+        self.title = "🦞"
+
         # Build initial menu
         self.build_menu()
 
         # Start status update timer
         self.timer = rumps.Timer(self.update_status, 2.0)
         self.timer.start()
+
+        # Schedule status item fix after app starts (rumps creates status item during run())
+        self._status_fix_timer = rumps.Timer(self._delayed_status_fix, 0.5)
+        self._status_fix_timer.start()
 
         # Auto-start voice loop after a short delay using threading
         import threading
@@ -75,7 +100,124 @@ class VoiceLoopMenuBar(rumps.App):
             self.auto_start_voice_loop()
         threading.Timer(1.0, delayed_start).start()
 
+        logger.info("Menu bar app initialized with title: %s", self.title)
         logger.info("Unified Voice Loop Menu Bar initialized")
+
+    def _delayed_status_fix(self, timer):
+        """Fix status item visibility after app has fully started."""
+        timer.stop()  # Only run once
+        logger.info("Running delayed status fix...")
+
+        # Now the status item should exist
+        self._setup_menu_bar_item(self._display_info)
+        self._force_status_item_visible()
+
+        logger.info("Delayed status fix complete")
+
+    def _detect_display_config(self) -> dict:
+        """Detect display configuration to adapt menu bar behavior."""
+        info = {
+            "has_internal": False,
+            "has_external": False,
+            "is_laptop": False,
+            "main_display_internal": False,
+        }
+        try:
+            from AppKit import NSScreen
+            import subprocess
+
+            # Check if this is a laptop by looking for battery
+            result = subprocess.run(
+                ["system_profiler", "SPPowerDataType"],
+                capture_output=True, text=True, timeout=5
+            )
+            is_laptop = "Battery" in result.stdout
+            info["is_laptop"] = is_laptop
+
+            screens = NSScreen.screens()
+            logger.info(f"Detected {len(screens)} screen(s), is_laptop={is_laptop}")
+
+            for i, screen in enumerate(screens):
+                desc = screen.deviceDescription()
+                # Try to get display name/info
+                screen_num = desc.get("NSScreenNumber", i)
+                frame = screen.frame()
+                logger.info(f"Screen {i}: {frame.size.width}x{frame.size.height}, screenNum={screen_num}")
+
+            # If it's a laptop with only one screen, assume internal display
+            if is_laptop and len(screens) == 1:
+                info["has_internal"] = True
+                info["main_display_internal"] = True
+            elif is_laptop and len(screens) > 1:
+                # Multiple screens on laptop = has external
+                info["has_internal"] = True
+                info["has_external"] = True
+                # Main screen is likely external if using clamshell mode
+            else:
+                # Desktop Mac
+                info["has_external"] = True
+
+        except Exception as e:
+            logger.warning("Could not detect display config: %s", e)
+
+        return info
+
+    def _setup_menu_bar_item(self, display_info: dict):
+        """Set up menu bar item adaptively based on display configuration."""
+        # Try multiple approaches in order of reliability
+        success = False
+
+        # Method 1: Direct NSStatusItem manipulation (most reliable on problematic displays)
+        if display_info.get("main_display_internal") and not success:
+            success = self._try_direct_status_item()
+
+        # Method 2: Simple title (fallback)
+        if not success:
+            self.title = "🦞"
+            success = True
+            logger.info("Using simple title: 🦞")
+
+        # Force visibility regardless of method
+        self._force_status_item_visible()
+
+    def _try_direct_status_item(self) -> bool:
+        """Try creating status item directly via AppKit."""
+        try:
+            from AppKit import NSStatusBar, NSFont
+
+            # Wait for rumps to create its status item, then configure it
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    # Get the button and set title directly
+                    button = status_item.button()
+                    if button:
+                        button.setTitle_("🦞")
+                        logger.info("Button title set to: 🦞")
+
+                    # Configure status item
+                    status_item.setVisible_(True)
+                    status_item.setLength_(-1)  # Variable length
+
+                    logger.info("Direct status item setup successful")
+                    return True
+        except Exception as e:
+            logger.warning("Direct status item setup failed: %s", e)
+        return False
+
+    def _force_status_item_visible(self):
+        """Force the status item to be visible."""
+        try:
+            from AppKit import NSStatusBar
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    status_item.setVisible_(True)
+                    # Also ensure length is set
+                    status_item.setLength_(-1)  # Variable length
+                    logger.info("Status item forced visible, length=-1")
+        except Exception as e:
+            logger.warning("Could not force status item visible: %s", e)
 
     def build_menu(self):
         """Build the menu structure."""
@@ -222,6 +364,27 @@ class VoiceLoopMenuBar(rumps.App):
             mic_menu.add(item)
 
         self.menu.add(mic_menu)
+
+        # Barge-in Sensitivity submenu (how easy to interrupt agent)
+        barge_menu = rumps.MenuItem("🗣️ Barge-in Sensitivity")
+        current_barge = self.config.barge_sensitivity
+
+        barge_options = [
+            ("off", "Off (can't interrupt)"),
+            ("low", "Low (speak loudly)"),
+            ("medium", "Medium (Recommended)"),
+            ("high", "High (easy interrupt)")
+        ]
+
+        for level, description in barge_options:
+            check = "✓ " if level == current_barge else "   "
+            item = rumps.MenuItem(
+                f"{check}{description}",
+                callback=lambda s, lv=level: self.on_select_barge_sensitivity(lv)
+            )
+            barge_menu.add(item)
+
+        self.menu.add(barge_menu)
 
         # Honorific toggle (sir/madam)
         current_honorific = self.get_current_honorific()
@@ -405,6 +568,37 @@ class VoiceLoopMenuBar(rumps.App):
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()
 
+    def on_select_barge_sensitivity(self, level: str):
+        """Set barge-in sensitivity level (how easy to interrupt agent)."""
+        try:
+            self.config.barge_sensitivity = level
+            multiplier = self.config.get_barge_multiplier()
+            logger.info(f"Barge-in sensitivity set to: {level} (multiplier: {multiplier}x)")
+        except Exception as e:
+            logger.error(f"Failed to save barge sensitivity: {e}")
+            rumps.alert("Error", f"Failed to save setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running to apply new sensitivity
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    time.sleep(0.2)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with barge sensitivity: {level}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
     def on_select_provider(self, provider: str):
         """Select TTS provider (edge-tts or elevenlabs)."""
         try:
@@ -523,9 +717,9 @@ class VoiceLoopMenuBar(rumps.App):
             all_running = self.integration_running and self.mouth_running and self.ears_running
 
             if all_running:
-                self.title = "🟢🦞"  # Green circle for active
+                self.title = "🟢🦞"  # Green dot with lobster for active
             else:
-                self.title = "🔴🦞"  # Red circle for inactive
+                self.title = "🔴🦞"  # Red dot with lobster for inactive
 
             # Rebuild menu if anything changed
             if (integration_was_running != self.integration_running or
@@ -1396,7 +1590,14 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
         """Quit the menu bar app and stop all voice loop processes."""
         self.on_stop_all(None)
         force_cleanup()
+        # Force kill by pattern as backup (SIGKILL)
+        subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
         rumps.quit_application()
+        # os._exit bypasses all cleanup and forces immediate termination
+        # This ensures we actually quit even if something is blocking
+        os._exit(0)
 
 
 def force_cleanup():
@@ -1436,6 +1637,11 @@ def force_cleanup():
     if stop_script.exists():
         subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
 
+    # Force kill by pattern as final backup
+    subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
+
 
 def signal_handler(signum, frame):
     """Handle termination signals."""
@@ -1452,8 +1658,29 @@ def main():
     # Only handle SIGTERM, not SIGINT (to avoid interfering with parent process)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Ensure NSApplication is properly activated (fixes menu bar not showing on some Macs)
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        from Foundation import NSAutoreleasePool
+
+        # Create autorelease pool for proper memory management
+        # Keep reference to prevent garbage collection
+        _pool = NSAutoreleasePool.alloc().init()  # noqa: F841
+
+        app_instance = NSApplication.sharedApplication()
+        # Use accessory policy for menu bar apps - shows in menu bar but not Dock
+        app_instance.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+        app_instance.activateIgnoringOtherApps_(True)
+
+        logger.info("NSApplication initialized with accessory policy")
+    except ImportError:
+        logger.warning("PyObjC not available, using rumps defaults")
+    except Exception as e:
+        logger.warning("NSApplication setup warning: %s", e)
+
     try:
         app = VoiceLoopMenuBar()
+        logger.info("VoiceLoopMenuBar created, starting run loop...")
         app.run()
     finally:
         # Ensure cleanup even if app.run() throws

@@ -28,16 +28,26 @@ class ConfigManager:
         "elevenlabs_api_key": None,
         "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel (default)
         "elevenlabs_model": "eleven_turbo_v2_5",  # Turbo for low latency
-        "mic_sensitivity": "medium"  # Options: "low", "medium", "high", "max"
+        "mic_sensitivity": "medium",  # Options: "low", "medium", "high", "max"
+        "barge_sensitivity": "medium"  # Options: "off", "low", "medium", "high"
     }
 
     # Mic sensitivity levels map to speech thresholds
     # Lower threshold = more sensitive (picks up quieter sounds)
     MIC_SENSITIVITY_THRESHOLDS = {
-        "low": 300,      # Less sensitive - only loud speech
-        "medium": 150,   # Balanced
-        "high": 100,     # Sensitive - default
-        "max": 50        # Maximum sensitivity - may pick up noise
+        "low": 500,      # Less sensitive - only loud speech
+        "medium": 300,   # Balanced
+        "high": 150,     # Sensitive - default
+        "max": 100       # Maximum sensitivity - may pick up noise
+    }
+
+    # Barge-in threshold multipliers (applied to base threshold during TTS)
+    # Higher multiplier = harder to barge in (less sensitive during speech)
+    BARGE_SENSITIVITY_MULTIPLIERS = {
+        "off": 100,      # Essentially disabled - can't interrupt
+        "low": 8,        # Hard to interrupt - need to speak loudly
+        "medium": 5,     # Balanced - clear speech interrupts
+        "high": 3        # Easy to interrupt - normal speech works
     }
 
     def __init__(self, config_path: Optional[Path] = None):
@@ -210,3 +220,19 @@ class ConfigManager:
         """Get the speech threshold value based on mic sensitivity setting."""
         level = self.mic_sensitivity
         return self.MIC_SENSITIVITY_THRESHOLDS.get(level, 100)
+
+    @property
+    def barge_sensitivity(self) -> str:
+        """Get barge-in sensitivity level (off, low, medium, high)."""
+        return self.get("barge_sensitivity", self.DEFAULT_CONFIG["barge_sensitivity"])
+
+    @barge_sensitivity.setter
+    def barge_sensitivity(self, level: str) -> None:
+        """Set barge-in sensitivity level."""
+        if level in self.BARGE_SENSITIVITY_MULTIPLIERS:
+            self.set("barge_sensitivity", level)
+
+    def get_barge_multiplier(self) -> int:
+        """Get the barge-in threshold multiplier based on barge sensitivity setting."""
+        level = self.barge_sensitivity
+        return self.BARGE_SENSITIVITY_MULTIPLIERS.get(level, 5)
