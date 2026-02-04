@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Molt Speak ElevenLabs Configuration
-# Shorthand: molt-speak elo
+# Molt Speak ElevenLabs API Key Setup
+# Shorthand: molt-speak elapi
 #
 
 set -e

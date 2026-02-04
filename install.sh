@@ -274,19 +274,19 @@ case "$1" in
         echo "✓ OpenSpeak updated"
         ;;
 
-    elo)
-        echo "Configuring ElevenLabs TTS..."
+    elapi)
+        echo "Setting ElevenLabs API Key..."
         cd "$INSTALL_DIR"
 
         # Check if script exists
-        if [ ! -f "scripts/molt-speak-elo.sh" ]; then
-            echo "Error: ElevenLabs configuration script not found"
+        if [ ! -f "scripts/molt-speak-elapi.sh" ]; then
+            echo "Error: ElevenLabs API key script not found"
             echo "Please update to the latest version: molt-speak update"
             exit 1
         fi
 
         # Run the configuration script
-        ./scripts/molt-speak-elo.sh
+        ./scripts/molt-speak-elapi.sh
         ;;
 
     *)
@@ -301,7 +301,7 @@ case "$1" in
         echo "  status   - Check if voice loop is running"
         echo "  logs     - View logs (audio|integration)"
         echo "  update   - Update OpenSpeak to latest version"
-        echo "  elo      - Configure ElevenLabs TTS (premium voices)"
+        echo "  elapi    - Set ElevenLabs API key"
         echo ""
         ;;
 esac

@@ -122,21 +122,27 @@ class VoiceLoopMenuBar(rumps.App):
         voice_menu = rumps.MenuItem("🎤 Voice")
 
         if current_provider == "elevenlabs":
-            # ElevenLabs: show current voice and option to reconfigure
-            voice_id = self.config.elevenlabs_voice_id
-            voice_menu.add(rumps.MenuItem(
-                f"✓ ElevenLabs Voice: {voice_id[:20]}...",
-                callback=None
-            ))
-            voice_menu.add(rumps.separator)
-            voice_menu.add(rumps.MenuItem(
-                "⚙️  Change Voice (Configure ElevenLabs)...",
-                callback=self.on_configure_elevenlabs
-            ))
-            voice_menu.add(rumps.MenuItem(
-                "🔊 Test Voice",
-                callback=self.on_test_elevenlabs_voice
-            ))
+            # ElevenLabs: show available voices from API
+            current_voice_id = self.config.elevenlabs_voice_id
+            voices = self.get_elevenlabs_voices()
+
+            if voices:
+                for voice in voices:
+                    voice_id = voice.get('voice_id', '')
+                    voice_name = voice.get('name', 'Unknown')
+                    check = "✓ " if voice_id == current_voice_id else "   "
+                    item = rumps.MenuItem(
+                        f"{check}{voice_name}",
+                        callback=lambda s, vid=voice_id, vname=voice_name: self.on_select_elevenlabs_voice(vid, vname)
+                    )
+                    voice_menu.add(item)
+                voice_menu.add(rumps.separator)
+            else:
+                voice_menu.add(rumps.MenuItem("(No voices found)", callback=None))
+                voice_menu.add(rumps.separator)
+
+            voice_menu.add(rumps.MenuItem("🔊 Test Voice", callback=self.on_test_elevenlabs_voice))
+            voice_menu.add(rumps.MenuItem("🔄 Refresh Voices", callback=self.on_refresh_elevenlabs_voices))
         else:
             # Edge-TTS: show Edge-TTS voices
             current_voice = self.config.preferred_voice
@@ -276,6 +282,74 @@ class VoiceLoopMenuBar(rumps.App):
         except Exception as e:
             logger.error(f"Failed to test voice: {e}")
             rumps.alert("Error", f"Failed to test voice: {e}")
+
+    def get_elevenlabs_voices(self):
+        """Fetch available ElevenLabs voices from API."""
+        # Use cached voices if available
+        if hasattr(self, '_elevenlabs_voices_cache') and self._elevenlabs_voices_cache:
+            return self._elevenlabs_voices_cache
+
+        api_key = self.config.elevenlabs_api_key
+        if not api_key:
+            return []
+
+        try:
+            from elevenlabs.client import ElevenLabs
+            client = ElevenLabs(api_key=api_key)
+            voices_response = client.voices.get_all()
+            voices = [{'voice_id': v.voice_id, 'name': v.name} for v in voices_response.voices]
+            self._elevenlabs_voices_cache = voices
+            logger.info(f"Fetched {len(voices)} ElevenLabs voices")
+            return voices
+        except Exception as e:
+            logger.error(f"Failed to fetch ElevenLabs voices: {e}")
+            return []
+
+    def on_select_elevenlabs_voice(self, voice_id, voice_name):
+        """Select an ElevenLabs voice."""
+        try:
+            self.config.elevenlabs_voice_id = voice_id
+            logger.info(f"ElevenLabs voice selected: {voice_name} ({voice_id})")
+        except Exception as e:
+            logger.error(f"Failed to save voice setting: {e}")
+            rumps.alert("Error", f"Failed to save voice setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with ElevenLabs voice: {voice_name}")
+
+                    # Test the new voice
+                    time.sleep(0.5)
+                    speech_file = self.speech_output_dir / "speech_output.txt"
+                    try:
+                        with open(speech_file, 'a') as f:
+                            f.write(f"Voice changed to {voice_name}.\n")
+                    except Exception as e:
+                        logger.error(f"Failed to write voice test message: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_refresh_elevenlabs_voices(self, sender):
+        """Refresh the ElevenLabs voices list."""
+        # Clear cache
+        self._elevenlabs_voices_cache = None
+        # Rebuild menu (will fetch fresh voices)
+        self.build_menu()
+        logger.info("ElevenLabs voices refreshed")
 
     def on_select_provider(self, provider: str):
         """Select TTS provider (edge-tts or elevenlabs)."""
