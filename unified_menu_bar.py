@@ -106,7 +106,7 @@ class VoiceLoopMenuBar(rumps.App):
             callback=lambda _: self.on_select_provider("edge-tts")
         ))
         provider_menu.add(rumps.MenuItem(
-            f"{elo_check}ElevenLabs (Premium)",
+            f"{elo_check}ElevenLabs ($ API Key)",
             callback=lambda _: self.on_select_provider("elevenlabs")
         ))
         provider_menu.add(rumps.separator)
