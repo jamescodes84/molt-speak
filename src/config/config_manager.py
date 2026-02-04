@@ -35,10 +35,10 @@ class ConfigManager:
     # Mic sensitivity levels map to speech thresholds
     # Lower threshold = more sensitive (picks up quieter sounds)
     MIC_SENSITIVITY_THRESHOLDS = {
-        "low": 300,      # Less sensitive - only loud speech
-        "medium": 150,   # Balanced
-        "high": 100,     # Sensitive - default
-        "max": 50        # Maximum sensitivity - may pick up noise
+        "low": 500,      # Less sensitive - only loud speech
+        "medium": 300,   # Balanced
+        "high": 150,     # Sensitive - default
+        "max": 100       # Maximum sensitivity - may pick up noise
     }
 
     # Barge-in threshold multipliers (applied to base threshold during TTS)
