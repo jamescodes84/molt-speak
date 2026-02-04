@@ -75,7 +75,8 @@ if [ -d "$INSTALL_DIR" ]; then
 
     # Reset to remote branch (not local HEAD) to skip over commits where venv was tracked
     git reset --hard origin/$BRANCH 2>/dev/null || true
-    git clean -fd 2>/dev/null || true
+    # Clean untracked files but preserve runtime/ (contains user config)
+    git clean -fd -e runtime/ 2>/dev/null || true
     git checkout $BRANCH 2>/dev/null || true
 else
     echo -e "${YELLOW}! Cloning Molt-Speak repository (branch: $BRANCH)...${NC}"
@@ -258,7 +259,8 @@ case "$1" in
 
         # Reset to remote branch (not local HEAD) to skip over commits where venv was tracked
         git reset --hard origin/$CURRENT_BRANCH 2>/dev/null || true
-        git clean -fd 2>/dev/null || true
+        # Clean untracked files but preserve runtime/ (contains user config)
+        git clean -fd -e runtime/ 2>/dev/null || true
 
         # Recreate venv
         echo "  Recreating virtual environment..."
