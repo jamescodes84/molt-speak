@@ -40,8 +40,9 @@ COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 # ============================================================================
 SAMPLE_RATE: int = int(os.getenv("SAMPLE_RATE", "16000"))
 # Speech threshold - lower = more sensitive (picks up quieter speech)
-# 50 = maximum sensitivity, will pick up very quiet speech
-SPEECH_THRESHOLD: int = int(os.getenv("SPEECH_THRESHOLD", "50"))
+# 100 = sensitive but won't pick up ambient noise or TTS speaker bleed
+# Too low (50) causes false barge-in from TTS audio hitting the mic
+SPEECH_THRESHOLD: int = int(os.getenv("SPEECH_THRESHOLD", "100"))
 # Silence duration - how long to wait after speech stops before processing
 # 3.0s allows for natural pauses and slower speech
 SEGMENT_DURATION: float = float(os.getenv("SEGMENT_DURATION", "3.0"))
