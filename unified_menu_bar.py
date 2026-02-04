@@ -223,6 +223,27 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(mic_menu)
 
+        # Barge-in Sensitivity submenu (how easy to interrupt agent)
+        barge_menu = rumps.MenuItem("🗣️ Barge-in Sensitivity")
+        current_barge = self.config.barge_sensitivity
+
+        barge_options = [
+            ("off", "Off (can't interrupt)"),
+            ("low", "Low (speak loudly)"),
+            ("medium", "Medium (Recommended)"),
+            ("high", "High (easy interrupt)")
+        ]
+
+        for level, description in barge_options:
+            check = "✓ " if level == current_barge else "   "
+            item = rumps.MenuItem(
+                f"{check}{description}",
+                callback=lambda s, lv=level: self.on_select_barge_sensitivity(lv)
+            )
+            barge_menu.add(item)
+
+        self.menu.add(barge_menu)
+
         # Honorific toggle (sir/madam)
         current_honorific = self.get_current_honorific()
         honorific_label = f"🎩 Called: {current_honorific.title()}"
@@ -401,6 +422,37 @@ class VoiceLoopMenuBar(rumps.App):
                     subprocess.run([str(start_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     logger.info(f"Voice loop restarted with mic sensitivity: {level}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_select_barge_sensitivity(self, level: str):
+        """Set barge-in sensitivity level (how easy to interrupt agent)."""
+        try:
+            self.config.barge_sensitivity = level
+            multiplier = self.config.get_barge_multiplier()
+            logger.info(f"Barge-in sensitivity set to: {level} (multiplier: {multiplier}x)")
+        except Exception as e:
+            logger.error(f"Failed to save barge sensitivity: {e}")
+            rumps.alert("Error", f"Failed to save setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running to apply new sensitivity
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    time.sleep(0.2)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with barge sensitivity: {level}")
                 except Exception as e:
                     logger.error(f"Failed to restart voice loop: {e}")
             threading.Thread(target=restart_voice_loop, daemon=True).start()

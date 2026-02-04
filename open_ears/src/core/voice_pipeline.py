@@ -60,7 +60,8 @@ class UltraFastVoicePipeline:
         self.sample_rate = sample_rate
         self.silence_duration = silence_duration
         self.speech_threshold = speech_threshold
-        self.speaking_threshold = speech_threshold * 5  # Much higher threshold during TTS to prevent bleed
+        self.barge_multiplier = self._get_barge_multiplier()
+        self.speaking_threshold = speech_threshold * self.barge_multiplier
         self.enable_tts = enable_tts
         self.check_interval = 0.1  # Check audio every 100ms for responsiveness
 
@@ -128,6 +129,19 @@ class UltraFastVoicePipeline:
 
         self.running = False
         self.segment_count = 0
+
+    def _get_barge_multiplier(self) -> int:
+        """Get barge-in threshold multiplier from ConfigManager."""
+        try:
+            import sys
+            config_manager_path = settings.PROJECT_DIR / "src" / "config"
+            if str(config_manager_path) not in sys.path:
+                sys.path.insert(0, str(config_manager_path))
+            from config_manager import ConfigManager
+            config = ConfigManager()
+            return config.get_barge_multiplier()
+        except Exception:
+            return 5  # Default fallback
 
     def _audio_callback(self, indata, frames, time_info, status):
         """Capture and analyze audio"""
