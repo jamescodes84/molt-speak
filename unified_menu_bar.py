@@ -1078,12 +1078,12 @@ end tell
                                        capture_output=True, timeout=15)
                         logger.info(f"Voice loop restarted with voice: {voice_name}")
 
-                        # Test the new voice by writing a test message
+                        # Announce voice change
                         time.sleep(0.5)  # Brief delay to let voice loop restart
                         speech_file = self.speech_output_dir / "speech_output.txt"
                         try:
-                            speech_file.write_text("I've changed voices. How is this?")
-                            logger.info("Voice test message written to speech output")
+                            speech_file.write_text("Voice Changed")
+                            logger.info("Voice change message written to speech output")
                         except Exception as e:
                             logger.error(f"Failed to write voice test message: {e}")
                     except Exception as e:
