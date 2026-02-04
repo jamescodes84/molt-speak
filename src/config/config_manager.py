@@ -9,8 +9,10 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-# Define CONFIG_FILE directly to avoid import issues when loaded via importlib
-RUNTIME_DIR = Path.home() / ".molt-speak" / "runtime"
+# Define paths directly to avoid import issues when loaded via importlib
+# Use project directory (molt-speak root) for runtime files
+PROJECT_DIR = Path(__file__).parent.parent.parent  # molt-speak root
+RUNTIME_DIR = PROJECT_DIR / "runtime"
 RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = RUNTIME_DIR / "molt_speak_config.json"
 

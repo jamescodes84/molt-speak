@@ -10,7 +10,7 @@ The speech system is already built and working perfectly.
 
 ✅ DO:
   - Use the speech system as-is
-  - Write text to ~/.molt-speak/runtime/speech_output.txt
+  - Write text to /tmp/speak.txt
   - Report issues to the user
   - Read this guide carefully
 
@@ -30,7 +30,7 @@ HOW THE SPEECH SYSTEM WORKS
 OpenClaw Mouth is the OUTPUT companion to OpenClaw Ears (voice INPUT).
 
 Flow:
-  1. You (the agent) write text to ~/.molt-speak/runtime/speech_output.txt
+  1. You (the agent) write text to /tmp/speak.txt
   2. Speech system detects the new text
   3. Text is synthesized to speech using Edge-TTS
   4. Speech plays through the computer's speakers
@@ -71,13 +71,13 @@ STEP 2: WRITE TEXT TO SPEAK
 
 To make the system speak, write to the file:
 
-    ~/.molt-speak/runtime/speech_output.txt
+    /tmp/speak.txt
 
 Example in Bash:
-    echo "Hello! How can I help you today?" >> ~/.molt-speak/runtime/speech_output.txt
+    echo "Hello! How can I help you today?" >> /tmp/speak.txt
 
 Example in Python:
-    with open(os.path.expanduser("~/.molt-speak/runtime/speech_output.txt"), "a") as f:
+    with open(os.path.expanduser("/tmp/speak.txt"), "a") as f:
         f.write("Hello! How can I help you today?\n")
 
 The speech system monitors this file and automatically speaks any new lines.
@@ -88,9 +88,9 @@ STEP 3: MULTIPLE MESSAGES
 
 You can queue multiple messages by writing multiple lines:
 
-    echo "First message" >> ~/.molt-speak/runtime/speech_output.txt
-    echo "Second message" >> ~/.molt-speak/runtime/speech_output.txt
-    echo "Third message" >> ~/.molt-speak/runtime/speech_output.txt
+    echo "First message" >> /tmp/speak.txt
+    echo "Second message" >> /tmp/speak.txt
+    echo "Third message" >> /tmp/speak.txt
 
 The system will speak them in order.
 
@@ -178,7 +178,7 @@ TROUBLESHOOTING
 Problem: Nothing is being spoken
 ---------------------------------
 1. Check if speech system is running (look for terminal window)
-2. Verify file path: ~/.molt-speak/runtime/speech_output.txt
+2. Verify file path: /tmp/speak.txt
 3. Check file permissions
 4. Look at speech system terminal for errors
 
@@ -227,7 +227,7 @@ Optional: Create .env file for custom settings:
 TTS_VOICE=en-US-ChristopherNeural
 TTS_RATE=1.0                    # Speech speed (0.5 to 2.0)
 TTS_VOLUME=1.0                  # Volume (0.0 to 1.0)
-INPUT_FILE=~/.molt-speak/runtime/speech_output.txt
+INPUT_FILE=/tmp/speak.txt
 LOG_LEVEL=INFO
 
 Most users don't need to change these.
@@ -257,7 +257,7 @@ FINAL REMINDERS
 =============================================================================
 
 ✅ The speech system is complete and working
-✅ Just write to ~/.molt-speak/runtime/speech_output.txt
+✅ Just write to /tmp/speak.txt
 ✅ One line = one spoken utterance
 ✅ Always append (>>) never overwrite (>)
 ✅ Check the terminal display for status

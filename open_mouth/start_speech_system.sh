@@ -48,8 +48,9 @@ pip install --upgrade pip -q
 pip install -r requirements.txt -q
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
-# Create speech output directory in user's home
-SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
+# Use project runtime directory (parent of open_mouth)
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+SPEECH_OUTPUT_DIR="$PROJECT_DIR/runtime"
 if [ ! -d "$SPEECH_OUTPUT_DIR" ]; then
     echo -e "${YELLOW}Creating $SPEECH_OUTPUT_DIR...${NC}"
     mkdir -p "$SPEECH_OUTPUT_DIR"

@@ -165,18 +165,16 @@ echo "$AUDIO_PID" > "$RUNTIME_DIR/audio.pid"
 echo "$AUDIO_PID" > "$RUNTIME_DIR/mouth.pid"
 echo "$AUDIO_PID" > "$RUNTIME_DIR/ears.pid"
 
-# Create speech output directory in user's home
-SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
-mkdir -p "$SPEECH_OUTPUT_DIR"
-chmod 755 "$SPEECH_OUTPUT_DIR"
+# Create speech output file in project runtime directory
+SPEECH_OUTPUT_DIR="$RUNTIME_DIR"
 touch "$SPEECH_OUTPUT_DIR/speech_output.txt"
-chmod 644 "$SPEECH_OUTPUT_DIR/speech_output.txt"
+chmod 666 "$SPEECH_OUTPUT_DIR/speech_output.txt"
 echo -e "      ${GREEN}✓ Created speech output at $SPEECH_OUTPUT_DIR/speech_output.txt${NC}"
 
 # Create simple symlink for agent to use (no spaces in path)
 # First clean up any stale symlink from other users
 rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
-ln -sf "$SPEECH_OUTPUT_DIR/speech_output.txt" /tmp/speak.txt
+ln -sf "$RUNTIME_DIR/speech_output.txt" /tmp/speak.txt
 echo -e "      ${GREEN}✓ Created /tmp/speak.txt symlink${NC}"
 
 echo ""

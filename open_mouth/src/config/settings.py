@@ -15,8 +15,8 @@ DEFAULT_VOLUME = float(os.getenv("TTS_VOLUME", "1.0"))
 DEFAULT_PITCH = float(os.getenv("TTS_PITCH", "0.0"))
 
 # Input Configuration
-PROJECT_DIR = Path(__file__).parent.parent.parent.parent  # open_speak root
-RUNTIME_DIR = Path.home() / ".molt-speak" / "runtime"
+PROJECT_DIR = Path(__file__).parent.parent.parent.parent  # molt-speak root
+RUNTIME_DIR = PROJECT_DIR / "runtime"
 
 # Speech output directory - uses runtime directory for reliable permissions
 SPEECH_OUTPUT_DIR = RUNTIME_DIR

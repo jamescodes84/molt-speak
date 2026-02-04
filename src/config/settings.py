@@ -23,7 +23,7 @@ LOG_FILE: Optional[str] = os.getenv("LOG_FILE")
 # Project Directories
 # ============================================================================
 PROJECT_DIR: Path = Path(__file__).parent.parent.parent  # molt-speak root
-RUNTIME_DIR: Path = Path.home() / ".molt-speak" / "runtime"
+RUNTIME_DIR: Path = PROJECT_DIR / "runtime"
 RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configuration file

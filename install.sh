@@ -315,12 +315,9 @@ echo -e "${GREEN}✓${NC} molt-speak command installed"
 mkdir -p "$INSTALL_DIR/runtime"
 mkdir -p "$INSTALL_DIR/logs"
 
-# Create speech output directory - use hidden directory for reliable permissions
-SPEECH_OUTPUT_DIR="$HOME/.molt-speak/runtime"
-mkdir -p "$SPEECH_OUTPUT_DIR"
-chmod 755 "$SPEECH_OUTPUT_DIR"
-touch "$SPEECH_OUTPUT_DIR/speech_output.txt"
-chmod 644 "$SPEECH_OUTPUT_DIR/speech_output.txt"
+# Create speech output file in project runtime directory
+touch "$INSTALL_DIR/runtime/speech_output.txt"
+chmod 666 "$INSTALL_DIR/runtime/speech_output.txt"
 
 # Clean up stale tmp files that may have wrong permissions from other users
 rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
