@@ -18,7 +18,7 @@ The OpenClaw Mouth system now includes a native macOS menu bar application for e
 
 1. Install dependencies:
 ```bash
-cd /Users/albus/Documents/Coding\ Workspace/open_mouth/open_mouth
+cd /path/to/molt-speak/open_mouth
 source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -44,7 +44,7 @@ Or with cloud TTS:
 In a separate terminal:
 
 ```bash
-cd /Users/albus/Documents/Coding\ Workspace/open_mouth/open_mouth
+cd /path/to/molt-speak/open_mouth
 source venv/bin/activate
 python scripts/launch_menu_bar.py
 ```

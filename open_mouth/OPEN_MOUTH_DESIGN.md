@@ -513,7 +513,7 @@ They just write text. The text is spoken. Done.
 
 ## References
 
-- **OpenClaw Ears:** /Users/albus/Documents/Jarvis Sandbox
+- **OpenClaw Ears:** /path/to/molt-speak/open_ears
 - **Edge-TTS:** https://github.com/rany2/edge-tts
 - **OpenClaw Ecosystem:** Part of the broader OpenClaw agent framework
 

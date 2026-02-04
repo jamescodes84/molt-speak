@@ -29,7 +29,7 @@ Each sentence is:
 ### Setup (one time)
 
 ```bash
-cd "/Users/albus/Documents/Coding Workspace/open_mouth/open_mouth"
+cd /path/to/molt-speak/open_mouth
 export ANTHROPIC_API_KEY="your-key-here"
 source venv/bin/activate
 ```
