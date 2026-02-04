@@ -31,7 +31,8 @@ class VoiceLoopMenuBar(rumps.App):
         """Initialize menu bar app."""
         # Use simple text title for reliable display on all screens (laptops, external monitors)
         # Emojis can fail to render on some displays
-        super().__init__("MS", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
+        super().__init__("MoltSpeak", quit_button=None)  # type: ignore[arg-type]  # rumps accepts None
+        self.title = "MS"  # This is what appears in the menu bar
 
         # Paths - use project-local directories (resolve to absolute paths)
         self.project_dir = Path(__file__).parent.resolve()
