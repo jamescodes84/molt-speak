@@ -13,6 +13,24 @@ INSTALL_DIR="$HOME/openclaw-workspace/molt-speak/app"
 REPO_URL="https://github.com/jamescodes84/molt-speak.git"
 BRANCH="${BRANCH:-develop}"  # Default to develop branch (main uses main)
 
+# Function to kill all orphaned molt-speak processes
+kill_orphaned_processes() {
+    echo -e "${YELLOW}! Cleaning up orphaned processes...${NC}"
+    pkill -9 -f "unified_menu_bar" 2>/dev/null || true
+    pkill -9 -f "unified_audio" 2>/dev/null || true
+    pkill -9 -f "voice_pipeline" 2>/dev/null || true
+    pkill -9 -f "mouth_pipeline" 2>/dev/null || true
+    pkill -9 -f "molt-speak" 2>/dev/null || true
+    pkill -9 -f "open_ears" 2>/dev/null || true
+    pkill -9 -f "open_mouth" 2>/dev/null || true
+    # Clean up any stale PID files
+    rm -f "$INSTALL_DIR/runtime/"*.pid 2>/dev/null || true
+    echo -e "${GREEN}✓${NC} Orphaned processes cleaned up"
+}
+
+# Kill any orphaned processes before starting
+kill_orphaned_processes
+
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     OpenSpeak Voice Loop Installer     ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
@@ -242,6 +260,18 @@ case "$1" in
 
     update)
         echo "Updating OpenSpeak..."
+
+        # Kill all orphaned processes first
+        echo "  Killing orphaned processes..."
+        pkill -9 -f "unified_menu_bar" 2>/dev/null || true
+        pkill -9 -f "unified_audio" 2>/dev/null || true
+        pkill -9 -f "voice_pipeline" 2>/dev/null || true
+        pkill -9 -f "mouth_pipeline" 2>/dev/null || true
+        pkill -9 -f "open_ears" 2>/dev/null || true
+        pkill -9 -f "open_mouth" 2>/dev/null || true
+        rm -f "$INSTALL_DIR/runtime/"*.pid 2>/dev/null || true
+        echo "  ✓ Processes cleaned up"
+
         cd "$INSTALL_DIR"
 
         # Detect current branch
