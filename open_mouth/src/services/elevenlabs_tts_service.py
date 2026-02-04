@@ -70,10 +70,10 @@ class ElevenLabsTTSService:
             loop = asyncio.get_event_loop()
             audio_generator = await loop.run_in_executor(
                 None,
-                lambda: self.client.generate(
+                lambda: self.client.text_to_speech.convert(
                     text=text,
-                    voice=self.voice_id,
-                    model=self.model,
+                    voice_id=self.voice_id,
+                    model_id=self.model,
                     voice_settings=self.voice_settings
                 )
             )
