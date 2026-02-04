@@ -195,6 +195,23 @@ LOG_LEVEL=INFO
 
 ---
 
+## Terms & Conditions
+
+**USE AT YOUR OWN RISK**
+
+This software is provided "as is", without warranty of any kind, express or implied. By using Molt Speak, you acknowledge and agree that:
+
+- The software may have bugs, errors, or unexpected behavior
+- Voice recognition and text-to-speech accuracy is not guaranteed
+- The developers are not responsible for any damages, data loss, or issues arising from use of this software
+- You are solely responsible for ensuring the software meets your needs
+- Audio recording features require appropriate permissions and should be used in compliance with applicable laws
+- This software is not intended for use in critical, medical, or safety-related applications
+
+Use of this software constitutes acceptance of these terms.
+
+---
+
 ## License
 
 MIT License
