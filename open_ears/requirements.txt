@@ -1,0 +1,29 @@
+# Optimized Requirements for OpenClaw Ears
+# Zero-cost performance optimizations included
+
+# Core Audio
+pyaudio>=0.2.11
+sounddevice>=0.4.5
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Speech Recognition
+openai-whisper>=20230314
+
+# Voice Activity Detection
+webrtcvad>=2.0.10
+
+# Machine Learning Backend
+torch>=1.13.0
+
+# Text-to-Speech
+edge-tts>=6.1.0
+
+# Optional: Audio Playback (for TTS)
+pygame>=2.1.0
+
+# Configuration
+python-dotenv>=0.19.0
+
+# Development
+pytest>=7.0.0
