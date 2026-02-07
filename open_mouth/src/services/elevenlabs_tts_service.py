@@ -6,8 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Union
 
-from elevenlabs import VoiceSettings
-from elevenlabs.client import ElevenLabs
+from elevenlabs import VoiceSettings  # pylint: disable=import-error
+from elevenlabs.client import ElevenLabs  # pylint: disable=import-error
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class ElevenLabsTTSService:
             logger.debug(f"ElevenLabs TTS: voice_id={self.voice_id}, model={self.model}, text={text[:50]}...")
 
             # Run the synchronous API call in a thread pool
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             audio_generator = await loop.run_in_executor(
                 None,
                 lambda: self.client.text_to_speech.convert(
@@ -81,11 +81,14 @@ class ElevenLabsTTSService:
                 )
             )
 
-            # Write audio to file
-            with open(str(output_path), "wb") as audio_file:
-                for chunk in audio_generator:
-                    if chunk:
-                        audio_file.write(chunk)
+            # Write audio to file (in executor to avoid blocking event loop)
+            def _write_chunks():
+                with open(str(output_path), "wb") as audio_file:
+                    for chunk in audio_generator:
+                        if chunk:
+                            audio_file.write(chunk)
+
+            await loop.run_in_executor(None, _write_chunks)
 
             logger.debug(f"Synthesized to {output_path}")
 
@@ -124,16 +127,24 @@ class ElevenLabsTTSService:
             Exception: If synthesis fails
         """
         try:
-            # Use a temporary file
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                tmp_path = Path(tmp_file.name)
+            # Use a temporary file (in executor to avoid blocking event loop)
+            loop = asyncio.get_running_loop()
+
+            def _make_temp():
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+                    return tmp_file.name
+
+            tmp_path = Path(await loop.run_in_executor(None, _make_temp))
 
             try:
                 await self.synthesize_to_file(text, tmp_path)
 
                 # Read the file back as bytes
-                with open(tmp_path, "rb") as f:
-                    audio_data = f.read()
+                def _read_file():
+                    with open(tmp_path, "rb") as f:
+                        return f.read()
+
+                audio_data = await loop.run_in_executor(None, _read_file)
 
                 return audio_data
 
@@ -155,8 +166,13 @@ class ElevenLabsTTSService:
         """
         try:
             test_text = "Hello, this is a test."
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                tmp_path = Path(tmp_file.name)
+            loop = asyncio.get_running_loop()
+
+            def _make_temp():
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+                    return tmp_file.name
+
+            tmp_path = Path(await loop.run_in_executor(None, _make_temp))
 
             try:
                 await self.synthesize_to_file(test_text, tmp_path)
@@ -177,7 +193,7 @@ class ElevenLabsTTSService:
             List of voice objects with name, voice_id, etc.
         """
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             voices_response = await loop.run_in_executor(
                 None,
                 lambda: self.client.voices.get_all()

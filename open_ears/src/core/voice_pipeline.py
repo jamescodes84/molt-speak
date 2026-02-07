@@ -44,13 +44,16 @@ class UltraFastVoicePipeline:
                  silence_duration=1.1,  # Seconds of silence before submitting
                  speech_threshold=500,
                  sample_rate=16000,
-                 enable_tts=False):
+                 enable_tts=False,
+                 analytics=None):
         """
         Initialize ultra-fast voice pipeline
 
         :param silence_duration: Seconds of silence before submitting (1.1s = fast response)
         :param enable_tts: Enable text-to-speech responses
+        :param analytics: Analytics manager instance
         """
+        self.analytics = analytics
         if output_dir is None:
             self.output_dir = settings.VOICE_DIR
         else:
@@ -258,6 +261,16 @@ class UltraFastVoicePipeline:
                     self.current_transcription = text
                     self.transcription_count += 1
                     self.last_transcription_time = time.time()
+
+                    # Track voice interaction
+                    if self.analytics:
+                        self.analytics.track_voice_interaction("transcription",
+                            transcription_time=round(transcription_time, 3),
+                            total_latency=round(total_latency, 3),
+                            text_length=len(text),
+                            word_count=len(text.split()),
+                            model_size=self.transcriber.model_size if hasattr(self.transcriber, 'model_size') else 'unknown'
+                        )
 
                     # Update visualizer with transcription
                     self.visualizer.set_transcription(text)

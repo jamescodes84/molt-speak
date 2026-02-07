@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 # Installation directory
 INSTALL_DIR="$HOME/openclaw-workspace/molt-speak/app"
 REPO_URL="https://github.com/jamescodes84/molt-speak.git"
-BRANCH="${BRANCH:-develop}"  # Default to develop branch (main uses main)
+BRANCH="${BRANCH:-main}"  # Default to main branch
 
 # Function to kill all orphaned molt-speak processes
 kill_orphaned_processes() {
@@ -147,10 +147,10 @@ deactivate
 
 echo -e "${GREEN}✓${NC} Virtual environment configured with all dependencies"
 
-# Create molt-speak CLI launcher
-echo -e "${YELLOW}! Creating molt-speak command...${NC}"
+# Create moltspeak CLI launcher
+echo -e "${YELLOW}! Creating moltspeak command...${NC}"
 
-LAUNCHER_SCRIPT="/usr/local/bin/molt-speak"
+LAUNCHER_SCRIPT="/usr/local/bin/moltspeak"
 
 sudo tee "$LAUNCHER_SCRIPT" > /dev/null << 'EOF'
 #!/bin/bash
@@ -164,8 +164,8 @@ case "$1" in
             echo "OpenSpeak menu bar is already running"
             echo ""
             echo "To stop and restart:"
-            echo "  molt-speak quit"
-            echo "  molt-speak start"
+            echo "  moltspeak quit"
+            echo "  moltspeak start"
             exit 0
         fi
 
@@ -199,7 +199,7 @@ case "$1" in
             echo "Voice loop stopped."
         fi
         echo ""
-        echo "Note: Menu bar app still running. Use 'molt-speak quit' to quit everything."
+        echo "Note: Menu bar app still running. Use 'moltspeak quit' to quit everything."
         ;;
 
     quit)
@@ -252,7 +252,7 @@ case "$1" in
                 ;;
             *)
                 echo "Available logs: audio, integration"
-                echo "Usage: molt-speak logs [audio|integration]"
+                echo "Usage: moltspeak logs [audio|integration]"
                 ls -1 "$LOG_DIR"/*.log 2>/dev/null | xargs -n1 basename
                 ;;
         esac
@@ -306,9 +306,9 @@ case "$1" in
         echo "✓ OpenSpeak updated"
         echo ""
         echo "Commands:"
-        echo "  molt-speak start   - Start the voice loop"
-        echo "  molt-speak update  - Update to latest version"
-        echo "  molt-speak elapi   - Set ElevenLabs API key"
+        echo "  moltspeak start   - Start the voice loop"
+        echo "  moltspeak update  - Update to latest version"
+        echo "  moltspeak elapi   - Set ElevenLabs API key"
         ;;
 
     elapi)
@@ -318,7 +318,7 @@ case "$1" in
         # Check if script exists
         if [ ! -f "scripts/molt-speak-elapi.sh" ]; then
             echo "Error: ElevenLabs API key script not found"
-            echo "Please update to the latest version: molt-speak update"
+            echo "Please update to the latest version: moltspeak update"
             exit 1
         fi
 
@@ -343,13 +343,13 @@ case "$1" in
         rm -f "$INSTALL_DIR/runtime/"*.pid 2>/dev/null || true
         # Clean up status files
         rm -f "$INSTALL_DIR/runtime/"*_status.txt 2>/dev/null || true
-        echo "✓ All molt-speak processes terminated"
+        echo "✓ All moltspeak processes terminated"
         ;;
 
     *)
-        echo "OpenSpeak Voice Loop - molt-speak command"
+        echo "OpenSpeak Voice Loop - moltspeak command"
         echo ""
-        echo "Usage: molt-speak [command]"
+        echo "Usage: moltspeak [command]"
         echo ""
         echo "Commands:"
         echo "  start    - Open menu bar control (select voice & start)"
@@ -367,7 +367,7 @@ EOF
 
 sudo chmod +x "$LAUNCHER_SCRIPT"
 
-echo -e "${GREEN}✓${NC} molt-speak command installed"
+echo -e "${GREEN}✓${NC} moltspeak command installed"
 
 # Create runtime directory
 mkdir -p "$INSTALL_DIR/runtime"
@@ -379,6 +379,86 @@ chmod 666 "$INSTALL_DIR/runtime/speech_output.txt"
 
 # Clean up stale tmp files that may have wrong permissions from other users
 rm -f /tmp/speak.txt 2>/dev/null || sudo rm -f /tmp/speak.txt 2>/dev/null || true
+
+# Set up PostHog Analytics
+echo -e "${YELLOW}! Configuring PostHog Analytics...${NC}"
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+    cat > "$INSTALL_DIR/.env" << 'ENVEOF'
+# Analytics (PostHog)
+POSTHOG_API_KEY=phc_pVyyYuhVRHc2CEON7HApwzVZ9Mqt5zczNtzyiIUO7mI
+POSTHOG_HOST=https://app.posthog.com
+POSTHOG_DISABLED=false
+
+# Integration Settings
+ENABLE_INTEGRATION=true
+ENABLE_BIDIRECTIONAL=false
+
+# Monitoring Configuration
+MOUTH_STATUS_POLL_INTERVAL=0.1
+MOUTH_STATUS_DEBOUNCE_MS=200
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=
+
+# Performance Tuning
+MAX_QUEUE_SIZE=10
+PROCESSING_TIMEOUT=30.0
+ENVEOF
+    echo -e "${GREEN}✓${NC} PostHog Analytics configured"
+else
+    echo -e "${GREEN}✓${NC} .env already exists (keeping existing config)"
+fi
+
+# Initialize analytics and send installation event
+echo -e "${YELLOW}! Initializing analytics...${NC}"
+cd "$INSTALL_DIR"
+source "$MAIN_VENV/bin/activate"
+
+python3 << 'ANALYTICS_INIT'
+import sys
+import os
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path('.').resolve()))
+
+try:
+    # Initialize analytics with direct config (load_dotenv doesn't work in heredoc)
+    from src.services.analytics import initialize_analytics
+
+    # Initialize with persistent directory (survives uninstalls)
+    analytics = initialize_analytics(
+        api_key='phc_pVyyYuhVRHc2CEON7HApwzVZ9Mqt5zczNtzyiIUO7mI',
+        host='https://app.posthog.com',
+        disabled=False
+    )
+
+    # Send installation event
+    analytics.track_event('installation_completed', {
+        'install_method': 'curl_script',
+        'platform': os.uname().sysname,
+        'platform_version': os.uname().release
+    })
+
+    # Flush events
+    analytics.shutdown()
+
+    # Print to stderr to ensure it shows up
+    import sys
+    sys.stderr.write(f"✓ Analytics initialized (User ID: {analytics.user_id})\n")
+    sys.stderr.flush()
+
+except Exception as e:
+    import sys
+    sys.stderr.write(f"⚠ Analytics initialization failed (non-fatal): {e}\n")
+    sys.stderr.flush()
+    # Don't fail the installation if analytics fails
+    pass
+ANALYTICS_INIT
+
+deactivate
+echo -e "${GREEN}✓${NC} Analytics ready"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
@@ -396,13 +476,13 @@ echo -e "Installed at: ${BLUE}$INSTALL_DIR${NC}"
 echo ""
 echo -e "Quick Start:"
 echo -e "  1. Open a terminal and start OpenClaw TUI (your AI agent)"
-echo -e "  2. Run: ${YELLOW}molt-speak start${NC}"
+echo -e "  2. Run: ${YELLOW}moltspeak start${NC}"
 echo -e "  3. Start talking!"
 echo ""
 echo -e "Commands:"
-echo -e "  ${YELLOW}molt-speak start${NC}   - Start the voice loop"
-echo -e "  ${YELLOW}molt-speak stop${NC}    - Stop the voice loop"
-echo -e "  ${YELLOW}molt-speak status${NC}  - Check status"
-echo -e "  ${YELLOW}molt-speak update${NC}  - Update to latest version"
-echo -e "  ${YELLOW}molt-speak elapi${NC}   - Set ElevenLabs API key"
+echo -e "  ${YELLOW}moltspeak start${NC}   - Start the voice loop"
+echo -e "  ${YELLOW}moltspeak stop${NC}    - Stop the voice loop"
+echo -e "  ${YELLOW}moltspeak status${NC}  - Check status"
+echo -e "  ${YELLOW}moltspeak update${NC}  - Update to latest version"
+echo -e "  ${YELLOW}moltspeak elapi${NC}   - Set ElevenLabs API key"
 echo ""

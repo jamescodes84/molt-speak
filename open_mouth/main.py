@@ -9,9 +9,21 @@ import logging
 import sys
 from pathlib import Path
 
+# Add parent directory to path for analytics import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add open_mouth directory to path for local imports (inserted last = searched first)
+sys.path.insert(0, str(Path(__file__).parent))
+
 from src.config import settings
 from src.core.mouth_pipeline import MouthPipeline
 from src.utils.logging_utils import configure_logging
+
+# Analytics
+try:
+    from src.services.analytics import get_analytics
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    ANALYTICS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +178,20 @@ def main() -> int:
         logger.info("OpenClaw Mouth - Text-to-Speech Output System")
         logger.info("=" * 80)
 
+        # Initialize analytics
+        analytics = None
+        if ANALYTICS_AVAILABLE:
+            try:
+                analytics = get_analytics()
+                analytics.track_event("mouth_started", {
+                    "voice": args.voice or settings.DEFAULT_VOICE,
+                    "rate": args.rate or settings.DEFAULT_RATE,
+                    "use_local_tts": args.local,
+                    "control_enabled": args.enable_control
+                })
+            except Exception as e:
+                logger.warning(f"Analytics initialization failed: {e}")
+
         # Prepare input file path
         input_file = Path(args.input) if args.input else settings.INPUT_FILE
 
@@ -183,19 +209,38 @@ def main() -> int:
             input_file=input_file,
             compact_display=args.compact,
             use_local_tts=args.local,
-            enable_control=args.enable_control
+            enable_control=args.enable_control,
+            analytics=analytics
         )
 
         pipeline.start()
+
+        if analytics:
+            analytics.track_event("mouth_stopped", {"reason": "normal_shutdown"})
 
         return 0
 
     except KeyboardInterrupt:
         logger.info("\nReceived keyboard interrupt, shutting down...")
+        if ANALYTICS_AVAILABLE:
+            try:
+                analytics = get_analytics()
+                analytics.track_event("mouth_stopped", {"reason": "user_interrupt"})
+            except:
+                pass
         return 0
 
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
+        if ANALYTICS_AVAILABLE:
+            try:
+                analytics = get_analytics()
+                analytics.track_event("mouth_error", {
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                })
+            except:
+                pass
         return 1
 
 

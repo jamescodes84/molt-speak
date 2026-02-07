@@ -5,6 +5,7 @@ Handles reading and writing agent configuration such as preferred voice
 and user preferences.
 """
 
+import os
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -94,6 +95,8 @@ class ConfigManager:
         """
         with open(self.config_path, 'w') as f:
             json.dump(config, f, indent=2)
+            f.flush()  # Ensure data is written to OS buffer
+            os.fsync(f.fileno())  # Force write to disk
 
     def get(self, key: str, default: Any = None) -> Any:
         """

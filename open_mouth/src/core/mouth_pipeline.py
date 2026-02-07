@@ -45,7 +45,8 @@ class MouthPipeline:
         input_file: Optional[Path] = None,
         compact_display: bool = False,
         use_local_tts: bool = False,
-        enable_control: bool = False
+        enable_control: bool = False,
+        analytics=None
     ):
         """
         Initialize the Mouth pipeline.
@@ -58,9 +59,16 @@ class MouthPipeline:
             compact_display: Use compact display mode
             use_local_tts: Use local TTS (macOS 'say') for instant playback
             enable_control: Enable control server for runtime configuration
+            analytics: Analytics manager instance
         """
-        # Configuration
-        self.voice = voice or settings.DEFAULT_VOICE
+        self.analytics = analytics
+        # Load config for voice/provider settings
+        config = ConfigManager()
+
+        # Configuration — prefer config's preferred_voice over hardcoded default
+        # Explicitly reject empty strings so falsy "" doesn't silently fall through
+        _config_voice = config.preferred_voice if config.preferred_voice else None
+        self.voice = voice or _config_voice or settings.DEFAULT_VOICE
         self.rate = rate or settings.DEFAULT_RATE
         self.volume = volume or settings.DEFAULT_VOLUME
         self.input_file = input_file or settings.INPUT_FILE
@@ -81,8 +89,7 @@ class MouthPipeline:
             )
             logger.info("Using LOCAL TTS for instant playback")
         else:
-            # Load config to determine TTS provider
-            config = ConfigManager()
+            # Determine TTS provider from config
             provider = config.tts_provider
 
             if provider == "elevenlabs":
@@ -104,7 +111,7 @@ class MouthPipeline:
                     logger.info(f"Using ELEVENLABS TTS (Voice ID: {voice_id}, Model: {model})")
 
             if provider == "edge-tts":
-                # Create Edge-TTS service
+                # Create Edge-TTS service using config preferred voice
                 self.tts_service = TTSFactory.create_tts_service(
                     provider="edge-tts",
                     voice=self.voice,
@@ -299,8 +306,23 @@ class MouthPipeline:
                     if success:
                         self.state_manager.increment_spoken()
                         logger.info(f"Finished speaking: {text[:50]}...")
+
+                        # Track successful TTS synthesis
+                        if self.analytics:
+                            self.analytics.track_voice_interaction("synthesis_local",
+                                text_length=len(text),
+                                word_count=len(text.split()),
+                                voice=self.voice,
+                                tts_provider="local"
+                            )
                     elif self.tts_service._interrupted:
                         logger.info(f"Barge-in: stopped speaking: {text[:50]}...")
+
+                        # Track barge-in
+                        if self.analytics:
+                            self.analytics.track_event("tts_barge_in", {
+                                "tts_provider": "local"
+                            })
                     else:
                         logger.error(f"Direct speech failed for: {text[:50]}...")
 
@@ -369,8 +391,23 @@ class MouthPipeline:
                 if success:
                     self.state_manager.increment_spoken()
                     logger.info(f"Finished speaking: {text[:50]}...")
+
+                    # Track successful TTS synthesis (cloud)
+                    if self.analytics:
+                        self.analytics.track_voice_interaction("synthesis_cloud",
+                            text_length=len(text),
+                            word_count=len(text.split()),
+                            voice=self.voice,
+                            tts_provider="edge-tts"
+                        )
                 elif self.audio_player._interrupted:
                     logger.info(f"Barge-in: stopped speaking: {text[:50]}...")
+
+                    # Track barge-in
+                    if self.analytics:
+                        self.analytics.track_event("tts_barge_in", {
+                            "tts_provider": "edge-tts"
+                        })
                 else:
                     logger.error(f"Failed to play audio for: {text[:50]}...")
 

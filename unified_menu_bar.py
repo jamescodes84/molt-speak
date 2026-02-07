@@ -16,6 +16,10 @@ import time
 import atexit
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Force PyObjC to initialize properly BEFORE importing rumps
 # This fixes menu bar not appearing on some Macs
@@ -33,6 +37,15 @@ except ImportError as e:
 import rumps
 
 from src.config.config_manager import ConfigManager
+
+# Analytics
+try:
+    from src.services.analytics import get_analytics
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    ANALYTICS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Analytics not available")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,6 +85,15 @@ class VoiceLoopMenuBar(rumps.App):
         # Configuration manager
         self.config = ConfigManager()
 
+        # Analytics
+        self.analytics = None
+        if ANALYTICS_AVAILABLE:
+            try:
+                self.analytics = get_analytics()
+                self.analytics.track_event("menu_bar_started")
+            except Exception as e:
+                logger.warning(f"Analytics initialization failed: {e}")
+
         # Detect display configuration for adaptive menu bar setup
         self._display_info = self._detect_display_config()
         logger.info("Display config: %s", self._display_info)
@@ -99,6 +121,12 @@ class VoiceLoopMenuBar(rumps.App):
             self.initializing = False
             self.auto_start_voice_loop()
         threading.Timer(1.0, delayed_start).start()
+
+        # Check for updates after startup (non-blocking)
+        def check_updates():
+            time.sleep(2.0)  # Wait for app to fully initialize
+            self.check_for_updates_on_startup()
+        threading.Thread(target=check_updates, daemon=True).start()
 
         logger.info("Menu bar app initialized with title: %s", self.title)
         logger.info("Unified Voice Loop Menu Bar initialized")
@@ -222,6 +250,13 @@ class VoiceLoopMenuBar(rumps.App):
     def build_menu(self):
         """Build the menu structure."""
         try:
+            # Clear all existing items by key to ensure full rebuild
+            keys = list(self.menu.keys())
+            for key in keys:
+                try:
+                    del self.menu[key]
+                except Exception:
+                    pass
             self.menu.clear()
         except Exception:
             return  # Menu not ready yet
@@ -230,14 +265,14 @@ class VoiceLoopMenuBar(rumps.App):
 
         # Start/Stop Molt Speak
         if all_running:
-            self.menu.add(rumps.MenuItem("⏹️  Stop Molt Speak", callback=self.on_stop_all))
+            self.menu.add(rumps.MenuItem("Stop Molt Speak", callback=self.on_stop_all))
         else:
-            self.menu.add(rumps.MenuItem("▶️  Start Molt Speak", callback=self.on_start_all))
+            self.menu.add(rumps.MenuItem("Start Molt Speak", callback=self.on_start_all))
 
         self.menu.add(rumps.separator)
 
         # TTS Provider selection
-        provider_menu = rumps.MenuItem("🔌 TTS Provider")
+        provider_menu = rumps.MenuItem("TTS Provider")
         current_provider = self.config.tts_provider
 
         edge_check = "✓ " if current_provider == "edge-tts" else "   "
@@ -261,7 +296,7 @@ class VoiceLoopMenuBar(rumps.App):
         self.menu.add(rumps.separator)
 
         # Voice selection submenu - varies based on TTS provider
-        voice_menu = rumps.MenuItem("🎤 Voice")
+        voice_menu = rumps.MenuItem("Voice")
 
         if current_provider == "elevenlabs":
             # ElevenLabs: show available voices from API
@@ -283,8 +318,8 @@ class VoiceLoopMenuBar(rumps.App):
                 voice_menu.add(rumps.MenuItem("(No voices found)", callback=None))
                 voice_menu.add(rumps.separator)
 
-            voice_menu.add(rumps.MenuItem("🔊 Test Voice", callback=self.on_test_elevenlabs_voice))
-            voice_menu.add(rumps.MenuItem("🔄 Refresh Voices", callback=self.on_refresh_elevenlabs_voices))
+            voice_menu.add(rumps.MenuItem("Test Voice", callback=self.on_test_elevenlabs_voice))
+            voice_menu.add(rumps.MenuItem("Refresh Voices", callback=self.on_refresh_elevenlabs_voices))
         else:
             # Edge-TTS: show Edge-TTS voices
             current_voice = self.config.preferred_voice
@@ -386,12 +421,31 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(barge_menu)
 
-        # Honorific toggle (sir/madam)
+        # Honorific selection (sir/madam/custom)
         current_honorific = self.get_current_honorific()
-        honorific_label = f"🎩 Called: {current_honorific.title()}"
-        self.menu.add(rumps.MenuItem(honorific_label, callback=self.on_toggle_honorific))
+        honorific_menu = rumps.MenuItem(f"Called: {current_honorific.title()}")
+
+        presets = ["Sir", "Madam"]
+        for preset in presets:
+            check = "✓ " if current_honorific.lower() == preset.lower() else "   "
+            honorific_menu.add(rumps.MenuItem(
+                f"{check}{preset}",
+                callback=lambda s, h=preset.lower(): self.on_select_honorific(h)
+            ))
+
+        honorific_menu.add(rumps.separator)
+
+        # Custom option
+        is_custom = current_honorific.lower() not in ("sir", "madam")
+        custom_label = f"✓  Custom: {current_honorific.title()}" if is_custom else "   Custom..."
+        honorific_menu.add(rumps.MenuItem(custom_label, callback=self.on_custom_honorific))
+
+        self.menu.add(honorific_menu)
 
         self.menu.add(rumps.separator)
+
+        # Check for Updates
+        self.menu.add(rumps.MenuItem("Check for Updates", callback=self.on_check_for_updates))
 
         # Quit
         self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
@@ -416,6 +470,8 @@ class VoiceLoopMenuBar(rumps.App):
             import threading
             def restart_voice_loop():
                 try:
+                    # Delay to ensure config is flushed to disk
+                    time.sleep(0.3)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                     subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -507,8 +563,8 @@ class VoiceLoopMenuBar(rumps.App):
             import threading
             def restart_voice_loop():
                 try:
-                    # Small delay to ensure config is flushed to disk
-                    time.sleep(0.2)
+                    # Delay to ensure config is flushed to disk
+                    time.sleep(0.3)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                     subprocess.run([str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -602,15 +658,13 @@ class VoiceLoopMenuBar(rumps.App):
     def on_select_provider(self, provider: str):
         """Select TTS provider (edge-tts or elevenlabs)."""
         try:
-            # Check if ElevenLabs is configured if selecting it
-            if provider == "elevenlabs":
-                if not self.config.elevenlabs_api_key:
-                    rumps.alert(
-                        "ElevenLabs Not Configured",
-                        "Please configure ElevenLabs first using:\n"
-                        "TTS Provider → Configure ElevenLabs"
-                    )
-                    return
+            # Warn if ElevenLabs is not configured but still allow the switch
+            if provider == "elevenlabs" and not self.config.elevenlabs_api_key:
+                rumps.alert(
+                    "ElevenLabs Not Configured",
+                    "No API key found. Voices won't load until you configure ElevenLabs:\n"
+                    "TTS Provider → Configure ElevenLabs"
+                )
 
             # Save provider setting
             self.config.tts_provider = provider
@@ -763,6 +817,12 @@ class VoiceLoopMenuBar(rumps.App):
                 logger.info("Voice loop started successfully")
                 self.update_status(None)
 
+                # Track voice loop start
+                if self.analytics:
+                    self.analytics.track_event("voice_loop_started", {
+                        "triggered_by": "user" if sender is not None else "auto_start"
+                    })
+
                 # Inject short instruction to read the instructions file
                 import threading
                 def delayed_injection():
@@ -811,6 +871,12 @@ class VoiceLoopMenuBar(rumps.App):
                     logger.info("Cleared speech output queue")
                 except Exception as e:
                     logger.warning(f"Failed to clear speech queue: {e}")
+
+                # Track voice loop stop
+                if self.analytics:
+                    self.analytics.track_event("voice_loop_stopped", {
+                        "triggered_by": "user"
+                    })
 
                 # Notification removed
                 self.update_status(None)
@@ -1273,25 +1339,32 @@ end tell
         except Exception:
             return "sir"
 
-    def on_toggle_honorific(self, sender):
-        """Toggle between sir and madam."""
-        current = self.get_current_honorific()
-        new_honorific = "madam" if current == "sir" else "sir"
+    def on_select_honorific(self, honorific: str):
+        """Select a preset honorific (sir/madam)."""
+        self._save_honorific(honorific)
 
+    def on_custom_honorific(self, sender):
+        """Prompt user to enter a custom honorific."""
+        current = self.get_current_honorific()
+        window = rumps.Window(
+            message="What would you like to be called?",
+            title="Custom Honorific",
+            default_text=current,
+            ok="Save",
+            cancel="Cancel"
+        )
+        response = window.run()
+        if response.clicked and response.text.strip():
+            self._save_honorific(response.text.strip())
+
+    def _save_honorific(self, new_honorific: str):
+        """Save honorific setting and update menu."""
         try:
-            # Save honorific setting to config file
             self.config.user_title = new_honorific
-            # Also save to runtime/honorific.conf for backwards compatibility
             honorific_file = self.runtime_dir / "honorific.conf"
             honorific_file.write_text(new_honorific)
             logger.info(f"Honorific changed to: {new_honorific}")
-
-            # Rebuild menu to update label
             self.build_menu()
-
-            # Note: We don't announce the change - just save it silently.
-            # The agent will use the new honorific naturally in its next response.
-
         except Exception as e:
             logger.error(f"Error changing honorific: {e}")
             rumps.alert("Error", f"Failed to change honorific: {e}")
@@ -1307,6 +1380,13 @@ end tell
             # Update cached value
             self._current_voice = voice_name
             logger.info(f"Voice changed to: {voice_name}")
+
+            # Track voice change
+            if self.analytics:
+                self.analytics.track_event("voice_changed", {
+                    "voice_name": voice_name,
+                    "mouth_was_running": self.mouth_running
+                })
 
             # Update menu immediately
             self.build_menu()
@@ -1585,6 +1665,172 @@ The pattern matches against terminal tab names (case-insensitive)."""
 View full docs in AGENT_INSTRUCTIONS.txt"""
 
         rumps.alert("Troubleshooting", msg)
+
+    def check_for_updates_on_startup(self):
+        """Check for updates when app starts (runs in background thread)."""
+        try:
+            from src.services.update_checker import check_for_updates
+
+            logger.info("Checking for updates...")
+
+            # Track update check
+            if self.analytics:
+                self.analytics.track_event("update_check_started", {
+                    "trigger": "app_startup"
+                })
+
+            update_available, latest_version, _, install_command = check_for_updates()
+
+            if update_available:
+                logger.info(f"Update available: {latest_version}")
+
+                # Track update available
+                if self.analytics:
+                    self.analytics.track_event("update_available", {
+                        "current_version": self._get_current_version(),
+                        "latest_version": latest_version,
+                        "trigger": "app_startup"
+                    })
+
+                # Show update dialog on main thread
+                rumps.notification(
+                    title="🦞 Molt-Speak Update Available",
+                    subtitle=f"Version {latest_version} is now available",
+                    message="Click to view release notes",
+                    sound=True
+                )
+
+                # Prompt user
+                response = rumps.alert(
+                    title="Update Available",
+                    message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
+                    ok="Update Now",
+                    cancel="Later"
+                )
+
+                if response == 1:  # User clicked "Update Now"
+                    self._perform_update(install_command, latest_version)
+                else:
+                    # Track dismissed update
+                    if self.analytics:
+                        self.analytics.track_event("update_dismissed", {
+                            "latest_version": latest_version
+                        })
+            else:
+                logger.info("No updates available")
+
+                # Track no update
+                if self.analytics:
+                    self.analytics.track_event("update_check_completed", {
+                        "update_available": False,
+                        "trigger": "app_startup"
+                    })
+
+        except ImportError:
+            logger.warning("Update checker not available (missing packaging library)")
+        except Exception as e:
+            logger.error(f"Error checking for updates: {e}")
+
+    def on_check_for_updates(self, sender):
+        """Manual update check from menu."""
+        try:
+            from src.services.update_checker import check_for_updates
+
+            # Track manual update check
+            if self.analytics:
+                self.analytics.track_event("update_check_started", {
+                    "trigger": "manual"
+                })
+
+            update_available, latest_version, _, install_command = check_for_updates()
+
+            if update_available:
+                # Track update available
+                if self.analytics:
+                    self.analytics.track_event("update_available", {
+                        "current_version": self._get_current_version(),
+                        "latest_version": latest_version,
+                        "trigger": "manual"
+                    })
+
+                response = rumps.alert(
+                    title="Update Available",
+                    message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
+                    ok="Update Now",
+                    cancel="Later"
+                )
+
+                if response == 1:
+                    self._perform_update(install_command, latest_version)
+            else:
+                # Track no update
+                if self.analytics:
+                    self.analytics.track_event("update_check_completed", {
+                        "update_available": False,
+                        "trigger": "manual"
+                    })
+
+                rumps.alert(
+                    title="No Updates Available",
+                    message=f"You're already running the latest version ({self._get_current_version()})."
+                )
+
+        except ImportError:
+            rumps.alert(
+                title="Update Check Failed",
+                message="Update checker not available. Please install: pip install packaging"
+            )
+        except Exception as e:
+            logger.error(f"Error checking for updates: {e}")
+            rumps.alert(
+                title="Update Check Failed",
+                message=f"Could not check for updates:\n\n{str(e)}"
+            )
+
+    def _perform_update(self, install_command, latest_version):
+        """Perform the update."""
+        # Track update started
+        if self.analytics:
+            self.analytics.track_event("update_started", {
+                "latest_version": latest_version,
+                "install_method": "curl_script"
+            })
+
+        # Show update instructions
+        rumps.alert(
+            title="Updating Molt-Speak",
+            message=f"To update to version {latest_version}:\n\n1. Open Terminal\n2. Run this command:\n\n{install_command}\n\n3. Restart Molt-Speak",
+            ok="Copy Command"
+        )
+
+        # Copy command to clipboard
+        try:
+            import subprocess
+            process = subprocess.Popen(
+                ['pbcopy'],
+                stdin=subprocess.PIPE,
+                close_fds=True
+            )
+            process.communicate(install_command.encode('utf-8'))
+
+            rumps.notification(
+                title="Command Copied",
+                subtitle="",
+                message="Update command copied to clipboard. Paste in Terminal.",
+                sound=False
+            )
+        except Exception as e:
+            logger.error(f"Failed to copy to clipboard: {e}")
+
+    def _get_current_version(self):
+        """Get the current app version."""
+        try:
+            version_file = self.project_dir / "VERSION"
+            if version_file.exists():
+                return version_file.read_text().strip()
+            return "1.0.0"
+        except Exception:
+            return "1.0.0"
 
     def on_quit(self, sender):
         """Quit the menu bar app and stop all voice loop processes."""
