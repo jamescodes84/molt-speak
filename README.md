@@ -1,4 +1,4 @@
-# Molt Speak 🦞🤖
+# Molt Speak 🦞
 
 Introducing Molt Speak, the free app designed to allow Moltys (Clawd Bots) to actually speak to their Humans.
 
