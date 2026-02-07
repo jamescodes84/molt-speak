@@ -58,3 +58,10 @@ ENABLE_BIDIRECTIONAL: bool = os.getenv("ENABLE_BIDIRECTIONAL", "false").lower() 
 # ============================================================================
 MAX_QUEUE_SIZE: int = int(os.getenv("MAX_QUEUE_SIZE", "10"))
 PROCESSING_TIMEOUT: float = float(os.getenv("PROCESSING_TIMEOUT", "30.0"))
+
+# ============================================================================
+# Analytics (PostHog)
+# ============================================================================
+POSTHOG_API_KEY: Optional[str] = os.getenv("POSTHOG_API_KEY")
+POSTHOG_HOST: str = os.getenv("POSTHOG_HOST", "https://app.posthog.com")
+POSTHOG_DISABLED: bool = os.getenv("POSTHOG_DISABLED", "false").lower() == "true"

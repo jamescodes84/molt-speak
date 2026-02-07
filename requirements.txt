@@ -40,6 +40,12 @@ torch>=1.13.0
 # pygame>=2.1.0  # Alternative audio playback (uncomment if needed)
 
 # ============================================================
+# Analytics
+# ============================================================
+posthog>=3.0.0
+packaging>=21.0  # For version comparison in update checker
+
+# ============================================================
 # Development/Testing
 # ============================================================
 pytest>=7.0.0

@@ -4,7 +4,6 @@ Zero cost, high quality, multiple voices
 """
 
 import asyncio
-import os
 from pathlib import Path
 import tempfile
 
@@ -85,9 +84,12 @@ class EdgeTTSSpeaker:
             if self.output_dir:
                 output_file = self.output_dir / f"tts_{hash(text)}.mp3"
             else:
-                # Use temp file
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                    output_file = tmp.name
+                # Use temp file (in executor to avoid blocking event loop)
+                loop = asyncio.get_running_loop()
+                def _make_temp():
+                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                        return tmp.name
+                output_file = await loop.run_in_executor(None, _make_temp)
 
         output_file = str(output_file)
 
@@ -145,11 +147,21 @@ class EdgeTTSSpeaker:
                 system = platform.system()
 
                 if system == 'Darwin':  # macOS
-                    os.system(f'afplay "{audio_file}"')
+                    try:
+                        proc = await asyncio.create_subprocess_exec('afplay', audio_file)
+                        await proc.wait()
+                    except FileNotFoundError:
+                        raise RuntimeError(f"'afplay' not found; cannot play {audio_file}")
                 elif system == 'Linux':
-                    os.system(f'mpg123 "{audio_file}"')
+                    try:
+                        proc = await asyncio.create_subprocess_exec('mpg123', audio_file)
+                        await proc.wait()
+                    except FileNotFoundError:
+                        raise RuntimeError(f"'mpg123' not found; install it to play {audio_file}")
                 elif system == 'Windows':
-                    os.system(f'start "" "{audio_file}"')
+                    import os as _os
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, _os.startfile, audio_file)
 
         return audio_file
 
@@ -166,7 +178,7 @@ class EdgeTTSSpeaker:
     @staticmethod
     async def list_voices_async():
         """List all available voices"""
-        import edge_tts
+        import edge_tts  # pylint: disable=import-error
         voices = await edge_tts.VoicesManager.create()
         return voices.voices
 

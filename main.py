@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.config import settings
 from src.core.coordinator import VoiceLoopCoordinator
+from src.services.analytics import initialize_analytics
 
 
 def configure_logging() -> None:
@@ -64,15 +65,42 @@ def main() -> int:
 
     logger = logging.getLogger(__name__)
 
+    # Initialize analytics (uses persistent dir that survives uninstalls)
+    analytics = initialize_analytics(
+        disabled=settings.POSTHOG_DISABLED
+    )
+
     try:
+        logger.info("Starting Molt-Speak Voice Loop Coordinator")
+
+        # Start analytics session
+        analytics.start_session()
+        analytics.track_event("coordinator_started", {
+            "integration_enabled": settings.ENABLE_INTEGRATION
+        })
+
         # Create and start coordinator
-        coordinator = VoiceLoopCoordinator()
+        coordinator = VoiceLoopCoordinator(analytics=analytics)
         coordinator.start()
+
+        analytics.track_event("coordinator_stopped")
+        return 0
+
+    except KeyboardInterrupt:
+        logger.info("Shutdown requested by user")
+        analytics.track_event("coordinator_stopped", {"reason": "user_interrupt"})
         return 0
 
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
+        analytics.track_event("coordinator_error", {
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
         return 1
+    finally:
+        # Analytics shutdown is handled by atexit
+        pass
 
 
 if __name__ == "__main__":

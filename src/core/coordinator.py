@@ -29,10 +29,13 @@ class VoiceLoopCoordinator:
     file that OpenClaw Ears can check to pause its microphone.
     """
 
-    def __init__(self):
+    def __init__(self, analytics=None):
         """Initialize the voice loop coordinator."""
         # Ensure runtime directory exists
         settings.RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Analytics
+        self.analytics = analytics
 
         # Pause signal file for Ears
         self.pause_signal_file = settings.EARS_PAUSE_SIGNAL_FILE
@@ -64,6 +67,12 @@ class VoiceLoopCoordinator:
         """Called when OpenClaw Mouth starts speaking."""
         logger.info("Agent started speaking - signaling Ears to pause")
 
+        # Track event
+        if self.analytics:
+            self.analytics.track_event("echo_prevention_activated", {
+                "action": "pause_microphone"
+            })
+
         # Create pause signal file
         try:
             self.pause_signal_file.write_text(f"{time.time()}\n")
@@ -74,6 +83,12 @@ class VoiceLoopCoordinator:
     def _on_mouth_idle(self) -> None:
         """Called when OpenClaw Mouth stops speaking."""
         logger.info("Agent stopped speaking - signaling Ears to resume")
+
+        # Track event
+        if self.analytics:
+            self.analytics.track_event("echo_prevention_deactivated", {
+                "action": "resume_microphone"
+            })
 
         # Remove pause signal file
         try:

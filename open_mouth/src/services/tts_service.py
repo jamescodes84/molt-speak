@@ -2,11 +2,12 @@
 
 import asyncio
 import logging
+import math
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-import edge_tts
+import edge_tts  # pylint: disable=import-error
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class TTSService:
         Returns:
             Formatted rate string (e.g., '+50%', '-25%')
         """
-        if rate == 1.0:
+        if math.isclose(rate, 1.0):
             return "+0%"
 
         percent = int((rate - 1.0) * 100)
@@ -131,11 +132,19 @@ class TTSService:
                 pitch=self._format_pitch(self.pitch)
             )
 
-            # Stream audio chunks to file
-            with open(str(output_path), "wb") as audio_file:
+            # Stream audio: write each chunk incrementally via executor
+            loop = asyncio.get_running_loop()
+            fd = await loop.run_in_executor(
+                None, lambda: open(str(output_path), "wb")
+            )
+            try:
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio":
-                        audio_file.write(chunk["data"])
+                        await loop.run_in_executor(
+                            None, fd.write, chunk["data"]
+                        )
+            finally:
+                await loop.run_in_executor(None, fd.close)
 
             logger.debug(f"Streamed synthesis to {output_path}")
 
@@ -157,16 +166,24 @@ class TTSService:
             Exception: If synthesis fails
         """
         try:
-            # Use a temporary file to collect audio data
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                tmp_path = Path(tmp_file.name)
+            # Use a temporary file to collect audio data (in executor to avoid blocking)
+            loop = asyncio.get_running_loop()
+
+            def _make_temp():
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+                    return tmp_file.name
+
+            tmp_path = Path(await loop.run_in_executor(None, _make_temp))
 
             try:
                 await self.synthesize_to_file(text, tmp_path)
 
                 # Read the file back as bytes
-                with open(tmp_path, "rb") as f:
-                    audio_data = f.read()
+                def _read_file():
+                    with open(tmp_path, "rb") as f:
+                        return f.read()
+
+                audio_data = await loop.run_in_executor(None, _read_file)
 
                 return audio_data
 
@@ -188,8 +205,13 @@ class TTSService:
         """
         try:
             test_text = "Hello, this is a test."
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-                tmp_path = Path(tmp_file.name)
+            loop = asyncio.get_running_loop()
+
+            def _make_temp():
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+                    return tmp_file.name
+
+            tmp_path = Path(await loop.run_in_executor(None, _make_temp))
 
             try:
                 await self.synthesize_to_file(test_text, tmp_path)

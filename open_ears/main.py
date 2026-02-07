@@ -10,10 +10,23 @@ Provides optimized STT → Agent → TTS pipeline.
 import argparse
 import logging
 import sys
+from pathlib import Path
+
+# Add parent directory to path for analytics import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add open_ears directory to path for local imports (inserted last = searched first)
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Local imports
 from src.config import settings
 from src.utils.logging_utils import configure_logging
+
+# Analytics
+try:
+    from src.services.analytics import get_analytics
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    ANALYTICS_AVAILABLE = False
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -75,6 +88,21 @@ def main() -> None:
     logger.info(f"Log Level: {args.log_level}")
     logger.info("=" * 70)
 
+    # Initialize analytics
+    analytics = None
+    if ANALYTICS_AVAILABLE:
+        try:
+            analytics = get_analytics()
+            analytics.track_event("ears_started", {
+                "model": args.model,
+                "compute_type": settings.COMPUTE_TYPE,
+                "speech_threshold": args.threshold,
+                "silence_duration": args.duration,
+                "tts_enabled": args.tts
+            })
+        except Exception as e:
+            logger.warning(f"Analytics initialization failed: {e}")
+
     # Import and run ultra-fast mode
     try:
         from src.core.voice_pipeline import UltraFastVoicePipeline
@@ -83,15 +111,26 @@ def main() -> None:
             model_size=args.model,
             speech_threshold=args.threshold,
             silence_duration=args.duration,
-            enable_tts=args.tts
+            enable_tts=args.tts,
+            analytics=analytics
         )
 
         pipeline.start()
 
+        if analytics:
+            analytics.track_event("ears_stopped", {"reason": "normal_shutdown"})
+
     except KeyboardInterrupt:
         logger.info("\nShutting down gracefully...")
+        if analytics:
+            analytics.track_event("ears_stopped", {"reason": "user_interrupt"})
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
+        if analytics:
+            analytics.track_event("ears_error", {
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
         sys.exit(1)
 
 
