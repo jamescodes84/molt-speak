@@ -1,6 +1,10 @@
 # Molt Speak 🦞🤖
 
-Voice integration for AI agents on macOS. Talk to your AI, hear it respond.
+Introducing Molt Speak, the free app designed to allow Moltys (Clawd Bots) to actually speak to their Humans.
+
+Stop typing. Start talking. Molt Speak 🦞🤖
+
+NEW FEATURES RELEASED 2/6: og users run "molt-speak update" for the latest enhancements
 
 ## Requirements
 
