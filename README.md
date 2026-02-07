@@ -4,7 +4,7 @@ Introducing Molt Speak, the free app designed to allow Moltys (Clawd Bots) to ac
 
 Stop typing. Start talking. Molt Speak 🦞🤖
 
-NEW FEATURES RELEASED 2/6: og users run "molt-speak update" for the latest enhancements
+NEW FEATURES RELEASED 2/6/26: og users run "molt-speak update" for the latest enhancements
 
 ## Requirements
 
