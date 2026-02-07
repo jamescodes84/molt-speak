@@ -1,4 +1,4 @@
-# Molt Speak
+# Molt Speak 🦞🤖
 
 Voice integration for AI agents on macOS. Talk to your AI, hear it respond.
 
