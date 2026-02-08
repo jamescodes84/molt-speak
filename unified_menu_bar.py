@@ -1198,7 +1198,7 @@ end if
         closing_instructions_file = self.speech_output_dir / "agent_closing_instructions.txt"
 
         # Read the closing instructions template
-        close_template_file = self.project_dir / "AGENT_INSTRUCTIONS_CLOSE.txt"
+        close_template_file = self.project_dir / "docs" / "AGENT_INSTRUCTIONS_CLOSE.txt"
         try:
             closing_instructions = close_template_file.read_text()
             # Write closing instructions to the molt-speak directory

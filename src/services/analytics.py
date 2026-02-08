@@ -116,11 +116,14 @@ class AnalyticsManager:
         # Identify user in PostHog so they appear in Persons
         if POSTHOG_AVAILABLE and not self.disabled and self.user_id:
             try:
-                posthog.identify(
-                    self.user_id,
-                    {
-                        "app_version": self.app_version,
-                        "platform": os.uname().sysname
+                posthog.capture(
+                    distinct_id=self.user_id,
+                    event='$identify',
+                    properties={
+                        '$set': {
+                            "app_version": self.app_version,
+                            "platform": os.uname().sysname
+                        }
                     }
                 )
             except Exception as e:
@@ -263,12 +266,15 @@ class AnalyticsManager:
         # Identify user with properties
         if POSTHOG_AVAILABLE and not self.disabled:
             try:
-                posthog.identify(
-                    self.user_id,
-                    {
-                        "app_version": self.app_version,
-                        "total_sessions": total_sessions + 1,
-                        "platform": os.uname().sysname
+                posthog.capture(
+                    distinct_id=self.user_id,
+                    event='$identify',
+                    properties={
+                        '$set': {
+                            "app_version": self.app_version,
+                            "total_sessions": total_sessions + 1,
+                            "platform": os.uname().sysname
+                        }
                     }
                 )
             except Exception as e:
