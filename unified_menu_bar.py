@@ -1,0 +1,1965 @@
+#!/usr/bin/env python3
+"""
+Unified macOS menu bar application for OpenClaw Voice Loop.
+
+Controls:
+- Integration Coordinator (echo prevention)
+- OpenClaw Mouth (voice output)
+- OpenClaw Ears (voice input)
+"""
+
+import logging
+import subprocess
+import os
+import signal
+import time
+import atexit
+from pathlib import Path
+from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Force PyObjC to initialize properly BEFORE importing rumps
+# This fixes menu bar not appearing on some Macs
+try:
+    from Foundation import NSObject, NSLog
+    from AppKit import NSApplication, NSStatusBar, NSVariableStatusItemLength
+    # Initialize NSApplication shared instance early
+    _app = NSApplication.sharedApplication()
+    # Force status bar to initialize
+    _status_bar = NSStatusBar.systemStatusBar()
+    NSLog("Menu bar initialization: NSApplication and NSStatusBar ready")
+except ImportError as e:
+    print(f"Warning: Could not pre-initialize AppKit: {e}")
+
+import rumps
+
+from src.config.config_manager import ConfigManager
+
+# Analytics
+try:
+    from src.services.analytics import get_analytics
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    ANALYTICS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Analytics not available")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class VoiceLoopMenuBar(rumps.App):
+    """Unified menu bar application for OpenClaw Voice Loop."""
+
+    def __init__(self):
+        """Initialize menu bar app."""
+        # Paths - use project-local directories (resolve to absolute paths)
+        # MUST be set BEFORE calling super().__init__ for menu building
+        self.project_dir = Path(__file__).parent.resolve()
+        self.runtime_dir = self.project_dir / "runtime"
+        self.logs_dir = self.project_dir / "logs"
+
+        # Speech output directory - use project runtime directory
+        self.speech_output_dir = self.runtime_dir
+
+        # Ensure directories exist with proper permissions
+        self.runtime_dir.mkdir(exist_ok=True)
+        self.logs_dir.mkdir(exist_ok=True)
+        self.speech_output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+
+        # PID files (in runtime dir)
+        self.integration_pid_file = self.runtime_dir / "integration.pid"
+        self.mouth_pid_file = self.runtime_dir / "mouth.pid"
+        self.ears_pid_file = self.runtime_dir / "ears.pid"
+
+        # State
+        self.integration_running = False
+        self.mouth_running = False
+        self.ears_running = False
+        self.initializing = True  # Flag to prevent crashes during startup
+        self._current_voice = None  # Cache for current voice selection
+
+        # Configuration manager
+        self.config = ConfigManager()
+
+        # Analytics
+        self.analytics = None
+        if ANALYTICS_AVAILABLE:
+            try:
+                self.analytics = get_analytics()
+                self.analytics.track_event("menu_bar_started")
+            except Exception as e:
+                logger.warning(f"Analytics initialization failed: {e}")
+
+        # Detect display configuration for adaptive menu bar setup
+        self._display_info = self._detect_display_config()
+        logger.info("Display config: %s", self._display_info)
+
+        # Initialize rumps app with a simple title first
+        super().__init__("MoltSpeak", quit_button=None)  # type: ignore
+        self.title = "🦞"
+
+        # Build initial menu
+        self.build_menu()
+
+        # Start status update timer
+        self.timer = rumps.Timer(self.update_status, 2.0)
+        self.timer.start()
+
+        # Schedule status item fix after app starts (rumps creates status item during run())
+        self._status_fix_timer = rumps.Timer(self._delayed_status_fix, 0.5)
+        self._status_fix_timer.start()
+
+        # Auto-start voice loop after a short delay using threading
+        import threading
+        def delayed_start():
+            # Must set initializing to False BEFORE calling auto_start
+            # otherwise on_start_all will return early due to the guard
+            self.initializing = False
+            self.auto_start_voice_loop()
+        threading.Timer(1.0, delayed_start).start()
+
+        # Check for updates after startup (non-blocking)
+        # HTTP check runs on background thread, UI shown via timer on main thread
+        self._pending_update = None  # Store update info from background thread
+        def check_updates():
+            time.sleep(2.0)  # Wait for app to fully initialize
+            self._fetch_update_info()
+        threading.Thread(target=check_updates, daemon=True).start()
+
+        # Timer polls for update result and shows dialog on main thread
+        self._update_ui_timer = rumps.Timer(self._show_pending_update, 1.0)
+        self._update_ui_timer.start()
+
+        logger.info("Menu bar app initialized with title: %s", self.title)
+        logger.info("Unified Voice Loop Menu Bar initialized")
+
+    def _delayed_status_fix(self, timer):
+        """Fix status item visibility after app has fully started."""
+        timer.stop()  # Only run once
+        logger.info("Running delayed status fix...")
+
+        # Now the status item should exist
+        self._setup_menu_bar_item(self._display_info)
+        self._force_status_item_visible()
+
+        logger.info("Delayed status fix complete")
+
+    def _detect_display_config(self) -> dict:
+        """Detect display configuration to adapt menu bar behavior."""
+        info = {
+            "has_internal": False,
+            "has_external": False,
+            "is_laptop": False,
+            "main_display_internal": False,
+        }
+        try:
+            from AppKit import NSScreen
+            import subprocess
+
+            # Check if this is a laptop by looking for battery
+            result = subprocess.run(
+                ["system_profiler", "SPPowerDataType"],
+                capture_output=True, text=True, timeout=5
+            )
+            is_laptop = "Battery" in result.stdout
+            info["is_laptop"] = is_laptop
+
+            screens = NSScreen.screens()
+            logger.info(f"Detected {len(screens)} screen(s), is_laptop={is_laptop}")
+
+            for i, screen in enumerate(screens):
+                desc = screen.deviceDescription()
+                # Try to get display name/info
+                screen_num = desc.get("NSScreenNumber", i)
+                frame = screen.frame()
+                logger.info(f"Screen {i}: {frame.size.width}x{frame.size.height}, screenNum={screen_num}")
+
+            # If it's a laptop with only one screen, assume internal display
+            if is_laptop and len(screens) == 1:
+                info["has_internal"] = True
+                info["main_display_internal"] = True
+            elif is_laptop and len(screens) > 1:
+                # Multiple screens on laptop = has external
+                info["has_internal"] = True
+                info["has_external"] = True
+                # Main screen is likely external if using clamshell mode
+            else:
+                # Desktop Mac
+                info["has_external"] = True
+
+        except Exception as e:
+            logger.warning("Could not detect display config: %s", e)
+
+        return info
+
+    def _setup_menu_bar_item(self, display_info: dict):
+        """Set up menu bar item adaptively based on display configuration."""
+        # Try multiple approaches in order of reliability
+        success = False
+
+        # Method 1: Direct NSStatusItem manipulation (most reliable on problematic displays)
+        if display_info.get("main_display_internal") and not success:
+            success = self._try_direct_status_item()
+
+        # Method 2: Simple title (fallback)
+        if not success:
+            self.title = "🦞"
+            success = True
+            logger.info("Using simple title: 🦞")
+
+        # Force visibility regardless of method
+        self._force_status_item_visible()
+
+    def _try_direct_status_item(self) -> bool:
+        """Try creating status item directly via AppKit."""
+        try:
+            from AppKit import NSStatusBar, NSFont
+
+            # Wait for rumps to create its status item, then configure it
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    # Get the button and set title directly
+                    button = status_item.button()
+                    if button:
+                        button.setTitle_("🦞")
+                        logger.info("Button title set to: 🦞")
+
+                    # Configure status item
+                    status_item.setVisible_(True)
+                    status_item.setLength_(-1)  # Variable length
+
+                    logger.info("Direct status item setup successful")
+                    return True
+        except Exception as e:
+            logger.warning("Direct status item setup failed: %s", e)
+        return False
+
+    def _force_status_item_visible(self):
+        """Force the status item to be visible."""
+        try:
+            from AppKit import NSStatusBar
+            if hasattr(self, '_nsapp') and hasattr(self._nsapp, 'nsstatusitem'):
+                status_item = self._nsapp.nsstatusitem
+                if status_item:
+                    status_item.setVisible_(True)
+                    # Also ensure length is set
+                    status_item.setLength_(-1)  # Variable length
+                    logger.info("Status item forced visible, length=-1")
+        except Exception as e:
+            logger.warning("Could not force status item visible: %s", e)
+
+    def build_menu(self):
+        """Build the menu structure."""
+        try:
+            # Clear all existing items by key to ensure full rebuild
+            keys = list(self.menu.keys())
+            for key in keys:
+                try:
+                    del self.menu[key]
+                except Exception:
+                    pass
+            self.menu.clear()
+        except Exception:
+            return  # Menu not ready yet
+
+        all_running = self.integration_running and self.mouth_running and self.ears_running
+
+        # Start/Stop Molt Speak
+        if all_running:
+            self.menu.add(rumps.MenuItem("Stop Molt Speak", callback=self.on_stop_all))
+        else:
+            self.menu.add(rumps.MenuItem("Start Molt Speak", callback=self.on_start_all))
+
+        self.menu.add(rumps.separator)
+
+        # TTS Provider selection
+        provider_menu = rumps.MenuItem("TTS Provider")
+        current_provider = self.config.tts_provider
+
+        edge_check = "✓ " if current_provider == "edge-tts" else "   "
+        elo_check = "✓ " if current_provider == "elevenlabs" else "   "
+
+        provider_menu.add(rumps.MenuItem(
+            f"{edge_check}Edge-TTS (Free)",
+            callback=lambda _: self.on_select_provider("edge-tts")
+        ))
+        provider_menu.add(rumps.MenuItem(
+            f"{elo_check}ElevenLabs ($ API Key)",
+            callback=lambda _: self.on_select_provider("elevenlabs")
+        ))
+        provider_menu.add(rumps.separator)
+        provider_menu.add(rumps.MenuItem(
+            "⚙️  Configure ElevenLabs...",
+            callback=self.on_configure_elevenlabs
+        ))
+
+        self.menu.add(provider_menu)
+        self.menu.add(rumps.separator)
+
+        # Voice selection submenu - varies based on TTS provider
+        voice_menu = rumps.MenuItem("Voice")
+
+        if current_provider == "elevenlabs":
+            # ElevenLabs: show available voices from API
+            current_voice_id = self.config.elevenlabs_voice_id
+            voices = self.get_elevenlabs_voices()
+
+            if voices:
+                for voice in voices:
+                    voice_id = voice.get('voice_id', '')
+                    voice_name = voice.get('name', 'Unknown')
+                    check = "✓ " if voice_id == current_voice_id else "   "
+                    item = rumps.MenuItem(
+                        f"{check}{voice_name}",
+                        callback=lambda s, vid=voice_id, vname=voice_name: self.on_select_elevenlabs_voice(vid, vname)
+                    )
+                    voice_menu.add(item)
+                voice_menu.add(rumps.separator)
+            else:
+                voice_menu.add(rumps.MenuItem("(No voices found)", callback=None))
+                voice_menu.add(rumps.separator)
+
+            voice_menu.add(rumps.MenuItem("Test Voice", callback=self.on_test_elevenlabs_voice))
+            voice_menu.add(rumps.MenuItem("Refresh Voices", callback=self.on_refresh_elevenlabs_voices))
+        else:
+            # Edge-TTS: show Edge-TTS voices
+            current_voice = self.config.preferred_voice
+
+            # Edge-TTS voice categories
+            voice_categories = [
+                ("🇺🇸 American", [
+                    ("en-US-ChristopherNeural", "Male (default)"),
+                    ("en-US-AriaNeural", "Female"),
+                    ("en-US-JennyNeural", "Female"),
+                    ("en-US-GuyNeural", "Male"),
+                    ("en-US-DavisNeural", "Male"),
+                    ("en-US-AmberNeural", "Female"),
+                    ("en-US-AnaNeural", "Female child"),
+                    ("en-US-BrandonNeural", "Male"),
+                    ("en-US-CoraNeural", "Female"),
+                    ("en-US-EricNeural", "Male"),
+                ]),
+                ("🇬🇧 British", [
+                    ("en-GB-RyanNeural", "Male"),
+                    ("en-GB-SoniaNeural", "Female"),
+                    ("en-GB-LibbyNeural", "Female"),
+                    ("en-GB-ThomasNeural", "Male"),
+                    ("en-GB-MaisieNeural", "Female child"),
+                ]),
+                ("🇦🇺 Australian", [
+                    ("en-AU-NatashaNeural", "Female"),
+                    ("en-AU-WilliamNeural", "Male"),
+                ]),
+                ("🇮🇪 Irish", [
+                    ("en-IE-EmilyNeural", "Female"),
+                    ("en-IE-ConnorNeural", "Male"),
+                ]),
+                ("🇿🇦 South African", [
+                    ("en-ZA-LeahNeural", "Female"),
+                    ("en-ZA-LukeNeural", "Male"),
+                ]),
+                ("🇮🇳 Indian", [
+                    ("en-IN-NeerjaNeural", "Female"),
+                    ("en-IN-PrabhatNeural", "Male"),
+                ]),
+            ]
+
+            for category_name, voices in voice_categories:
+                category_menu = rumps.MenuItem(category_name)
+                for voice_name, description in voices:
+                    check = "✓ " if voice_name == current_voice else "   "
+                    item = rumps.MenuItem(
+                        f"{check}{voice_name.split('-')[-1]} - {description}",
+                        callback=lambda s, v=voice_name: self.on_select_edge_voice(v)
+                    )
+                    category_menu.add(item)
+                voice_menu.add(category_menu)
+
+            voice_menu.add(rumps.separator)
+            voice_menu.add(rumps.MenuItem("🔊 Test Current Voice", callback=self.on_test_edge_voice))
+
+        self.menu.add(voice_menu)
+
+        # Mic Sensitivity submenu
+        mic_menu = rumps.MenuItem("🎙️ Mic Sensitivity")
+        current_sensitivity = self.config.mic_sensitivity
+
+        sensitivity_options = [
+            ("low", "Low (loud speech only)"),
+            ("medium", "Medium"),
+            ("high", "High (Recommended)"),
+            ("max", "Max (may pick up noise)")
+        ]
+
+        for level, description in sensitivity_options:
+            check = "✓ " if level == current_sensitivity else "   "
+            item = rumps.MenuItem(
+                f"{check}{description}",
+                callback=lambda s, lv=level: self.on_select_mic_sensitivity(lv)
+            )
+            mic_menu.add(item)
+
+        self.menu.add(mic_menu)
+
+        # Barge-in Sensitivity submenu (how easy to interrupt agent)
+        barge_menu = rumps.MenuItem("🗣️ Barge-in Sensitivity")
+        current_barge = self.config.barge_sensitivity
+
+        barge_options = [
+            ("off", "Off (can't interrupt)"),
+            ("low", "Low (speak loudly)"),
+            ("medium", "Medium (Recommended)"),
+            ("high", "High (easy interrupt)")
+        ]
+
+        for level, description in barge_options:
+            check = "✓ " if level == current_barge else "   "
+            item = rumps.MenuItem(
+                f"{check}{description}",
+                callback=lambda s, lv=level: self.on_select_barge_sensitivity(lv)
+            )
+            barge_menu.add(item)
+
+        self.menu.add(barge_menu)
+
+        # Honorific selection (sir/madam/custom)
+        current_honorific = self.get_current_honorific()
+        honorific_menu = rumps.MenuItem(f"Called: {current_honorific.title()}")
+
+        presets = ["Sir", "Madam"]
+        for preset in presets:
+            check = "✓ " if current_honorific.lower() == preset.lower() else "   "
+            honorific_menu.add(rumps.MenuItem(
+                f"{check}{preset}",
+                callback=lambda s, h=preset.lower(): self.on_select_honorific(h)
+            ))
+
+        honorific_menu.add(rumps.separator)
+
+        # Custom option
+        is_custom = current_honorific.lower() not in ("sir", "madam")
+        custom_label = f"✓  Custom: {current_honorific.title()}" if is_custom else "   Custom..."
+        honorific_menu.add(rumps.MenuItem(custom_label, callback=self.on_custom_honorific))
+
+        self.menu.add(honorific_menu)
+
+        self.menu.add(rumps.separator)
+
+        # Check for Updates
+        self.menu.add(rumps.MenuItem("Check for Updates", callback=self.on_check_for_updates))
+
+        # Quit
+        self.menu.add(rumps.MenuItem("Quit", callback=self.on_quit))
+
+    def on_select_edge_voice(self, voice_name):
+        """Select an Edge-TTS voice from the menu."""
+        try:
+            # Save voice setting to config file
+            self.config.preferred_voice = voice_name
+            self._current_voice = voice_name
+            logger.info(f"Edge-TTS voice selected: {voice_name}")
+        except Exception as e:
+            logger.error(f"Failed to save voice setting: {e}")
+            rumps.alert("Error", f"Failed to save voice setting: {e}")
+            return
+
+        # Update menu immediately to show the change
+        self.build_menu()
+
+        # Restart voice loop if running
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    # Delay to ensure config is flushed to disk
+                    time.sleep(0.3)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with Edge-TTS voice: {voice_name}")
+
+                    # Announce voice change
+                    time.sleep(0.5)
+                    speech_file = self.speech_output_dir / "speech_output.txt"
+                    try:
+                        with open(speech_file, 'a') as f:
+                            f.write("Voice Changed\n")
+                        logger.info("Voice change message written to speech output")
+                    except Exception as e:
+                        logger.error(f"Failed to write voice change message: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_test_edge_voice(self, sender):
+        """Test the current Edge-TTS voice."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "Start Molt Speak first to test the voice.")
+            return
+
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write("This is a test of the current Edge TTS voice.\n")
+            logger.info("Voice test message written")
+        except Exception as e:
+            logger.error(f"Failed to test voice: {e}")
+            rumps.alert("Error", f"Failed to test voice: {e}")
+
+    def on_test_elevenlabs_voice(self, sender):
+        """Test the current ElevenLabs voice."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "Start Molt Speak first to test the voice.")
+            return
+
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write("This is a test of the ElevenLabs voice.\n")
+            logger.info("ElevenLabs voice test message written")
+        except Exception as e:
+            logger.error(f"Failed to test voice: {e}")
+            rumps.alert("Error", f"Failed to test voice: {e}")
+
+    def get_elevenlabs_voices(self):
+        """Fetch available ElevenLabs voices from API."""
+        # Use cached voices if available
+        if hasattr(self, '_elevenlabs_voices_cache') and self._elevenlabs_voices_cache:
+            return self._elevenlabs_voices_cache
+
+        api_key = self.config.elevenlabs_api_key
+        if not api_key:
+            return []
+
+        try:
+            from elevenlabs.client import ElevenLabs
+            client = ElevenLabs(api_key=api_key)
+            voices_response = client.voices.get_all()
+            voices = [{'voice_id': v.voice_id, 'name': v.name} for v in voices_response.voices]
+            self._elevenlabs_voices_cache = voices
+            logger.info(f"Fetched {len(voices)} ElevenLabs voices")
+            return voices
+        except Exception as e:
+            logger.error(f"Failed to fetch ElevenLabs voices: {e}")
+            return []
+
+    def on_select_elevenlabs_voice(self, voice_id, voice_name):
+        """Select an ElevenLabs voice."""
+        try:
+            self.config.elevenlabs_voice_id = voice_id
+            logger.info(f"ElevenLabs voice selected: {voice_name} ({voice_id})")
+        except Exception as e:
+            logger.error(f"Failed to save voice setting: {e}")
+            rumps.alert("Error", f"Failed to save voice setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    # Delay to ensure config is flushed to disk
+                    time.sleep(0.3)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with ElevenLabs voice: {voice_name} ({voice_id})")
+
+                    # Announce voice change
+                    time.sleep(0.5)
+                    speech_file = self.speech_output_dir / "speech_output.txt"
+                    try:
+                        with open(speech_file, 'a') as f:
+                            f.write("Voice Changed\n")
+                    except Exception as e:
+                        logger.error(f"Failed to write voice change message: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_refresh_elevenlabs_voices(self, sender):
+        """Refresh the ElevenLabs voices list."""
+        # Clear cache
+        self._elevenlabs_voices_cache = None
+        # Rebuild menu (will fetch fresh voices)
+        self.build_menu()
+        logger.info("ElevenLabs voices refreshed")
+
+    def on_select_mic_sensitivity(self, level: str):
+        """Set microphone sensitivity level."""
+        try:
+            self.config.mic_sensitivity = level
+            threshold = self.config.get_speech_threshold()
+            logger.info(f"Mic sensitivity set to: {level} (threshold: {threshold})")
+        except Exception as e:
+            logger.error(f"Failed to save mic sensitivity: {e}")
+            rumps.alert("Error", f"Failed to save setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running to apply new sensitivity
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    time.sleep(0.2)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with mic sensitivity: {level}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_select_barge_sensitivity(self, level: str):
+        """Set barge-in sensitivity level (how easy to interrupt agent)."""
+        try:
+            self.config.barge_sensitivity = level
+            multiplier = self.config.get_barge_multiplier()
+            logger.info(f"Barge-in sensitivity set to: {level} (multiplier: {multiplier}x)")
+        except Exception as e:
+            logger.error(f"Failed to save barge sensitivity: {e}")
+            rumps.alert("Error", f"Failed to save setting: {e}")
+            return
+
+        # Update menu
+        self.build_menu()
+
+        # Restart voice loop if running to apply new sensitivity
+        if self.mouth_running:
+            import threading
+            def restart_voice_loop():
+                try:
+                    time.sleep(0.2)
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                    subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    logger.info(f"Voice loop restarted with barge sensitivity: {level}")
+                except Exception as e:
+                    logger.error(f"Failed to restart voice loop: {e}")
+            threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+    def on_select_provider(self, provider: str):
+        """Select TTS provider (edge-tts or elevenlabs)."""
+        try:
+            # Warn if ElevenLabs is not configured but still allow the switch
+            if provider == "elevenlabs" and not self.config.elevenlabs_api_key:
+                rumps.alert(
+                    "ElevenLabs Not Configured",
+                    "No API key found. Voices won't load until you configure ElevenLabs:\n"
+                    "TTS Provider → Configure ElevenLabs"
+                )
+
+            # Save provider setting
+            self.config.tts_provider = provider
+            logger.info(f"TTS provider changed to: {provider}")
+
+            # Update menu
+            self.build_menu()
+
+            # Restart voice loop if running
+            if self.mouth_running:
+                import threading
+                provider_name = "ElevenLabs" if provider == "elevenlabs" else "Edge-TTS"
+
+                def restart_voice_loop():
+                    try:
+                        stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                        subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        logger.info(f"Voice loop restarted with provider: {provider}")
+
+                        # Test the new provider
+                        time.sleep(0.5)
+                        speech_file = self.speech_output_dir / "speech_output.txt"
+                        try:
+                            speech_file.write_text(f"Switched to {provider_name}. Testing voice.")
+                            logger.info("Provider test message written to speech output")
+                        except Exception as e:
+                            logger.error(f"Failed to write provider test message: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to restart voice loop: {e}")
+
+                threading.Thread(target=restart_voice_loop, daemon=True).start()
+            else:
+                rumps.alert(
+                    "Provider Changed",
+                    f"TTS provider changed to {provider}.\n\n"
+                    "Changes will take effect when you start the voice loop."
+                )
+
+        except Exception as e:
+            logger.error(f"Error selecting provider: {e}")
+            rumps.alert("Error", f"Failed to change provider: {e}")
+
+    def on_configure_elevenlabs(self, sender):
+        """Launch ElevenLabs configuration wizard."""
+        try:
+            logger.info("Launching ElevenLabs configuration...")
+
+            # Run the configuration script in a new Terminal window
+            config_script = self.project_dir / "scripts" / "molt-speak-elo.sh"
+
+            if not config_script.exists():
+                rumps.alert(
+                    "Script Not Found",
+                    f"Configuration script not found at:\n{config_script}"
+                )
+                return
+
+            # Open Terminal and run the script
+            applescript = f'''
+                tell application "Terminal"
+                    activate
+                    do script "cd '{self.project_dir}' && ./scripts/molt-speak-elo.sh"
+                end tell
+            '''
+
+            subprocess.run(['osascript', '-e', applescript], check=True)
+
+            logger.info("ElevenLabs configuration launched in Terminal")
+
+        except Exception as e:
+            logger.error(f"Error launching ElevenLabs configuration: {e}")
+            rumps.alert("Error", f"Failed to launch configuration: {e}")
+
+    def check_process(self, pid_file: Path) -> bool:
+        """Check if a process is running by PID file."""
+        if not pid_file.exists():
+            return False
+
+        try:
+            pid = int(pid_file.read_text().strip())
+            # Check if process exists
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, ValueError, PermissionError):
+            return False
+
+    def update_status(self, sender):
+        """Update status of all systems."""
+        try:
+            integration_was_running = self.integration_running
+            mouth_was_running = self.mouth_running
+            ears_was_running = self.ears_running
+
+            # Check each system
+            self.integration_running = self.check_process(self.integration_pid_file)
+            self.mouth_running = self.check_process(self.mouth_pid_file)
+            self.ears_running = self.check_process(self.ears_pid_file)
+
+            # Update title based on status
+            all_running = self.integration_running and self.mouth_running and self.ears_running
+
+            if all_running:
+                self.title = "🟢🦞"  # Green dot with lobster for active
+            else:
+                self.title = "🔴🦞"  # Red dot with lobster for inactive
+
+            # Rebuild menu if anything changed
+            if (integration_was_running != self.integration_running or
+                mouth_was_running != self.mouth_running or
+                ears_was_running != self.ears_running):
+                self.build_menu()
+        except Exception as e:
+            logger.warning(f"Error updating status: {e}")
+
+    def auto_start_voice_loop(self, sender=None):
+        """Auto-start voice loop on app launch if not already running."""
+        # Check if already running
+        all_running = (self.check_process(self.integration_pid_file) and
+                      self.check_process(self.mouth_pid_file) and
+                      self.check_process(self.ears_pid_file))
+
+        if not all_running:
+            logger.info("Auto-starting voice loop...")
+            self.on_start_all(sender)
+        else:
+            logger.info("Voice loop already running, skipping auto-start")
+
+    def on_start_all(self, sender):
+        """Start the complete voice loop."""
+        if getattr(self, 'initializing', False):
+            return  # Don't start during initialization
+        try:
+            logger.info("Starting voice loop...")
+
+            # Run start script
+            script_path = self.project_dir / "scripts" / "start_voice_loop.sh"
+            result = subprocess.run(
+                [str(script_path)],
+                cwd=str(self.project_dir),
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                # Don't show notification to avoid macOS notification spam
+                logger.info("Voice loop started successfully")
+                self.update_status(None)
+
+                # Track voice loop start
+                if self.analytics:
+                    self.analytics.track_event("voice_loop_started", {
+                        "triggered_by": "user" if sender is not None else "auto_start"
+                    })
+
+                # Inject short instruction to read the instructions file
+                import threading
+                def delayed_injection():
+                    time.sleep(1.0)
+                    self.inject_agent_instructions()
+                threading.Thread(target=delayed_injection, daemon=True).start()
+
+            else:
+                logger.error(f"Failed to start voice loop: {result.stderr}")
+                # Only show alert if called from main thread (not auto-start)
+                if sender is not None:
+                    rumps.alert(
+                        "Start Failed",
+                        f"Failed to start voice loop:\n\n{result.stderr}"
+                    )
+        except Exception as e:
+            logger.error(f"Error starting voice loop: {e}")
+            # Only show alert if called from main thread (not auto-start)
+            if sender is not None:
+                rumps.alert("Error", f"Failed to start: {e}")
+
+    def on_stop_all(self, sender):
+        """Stop the complete voice loop."""
+        if getattr(self, 'initializing', False):
+            return  # Don't stop during initialization
+        try:
+            logger.info("Stopping voice loop...")
+
+            # Inject close message to tell agent voice mode is off
+            self.inject_close_message()
+
+            # Run stop script
+            script_path = self.project_dir / "scripts" / "stop_voice_loop.sh"
+            result = subprocess.run(
+                [str(script_path)],
+                cwd=str(self.project_dir),
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                # Clear speech output queue to prevent old messages on restart
+                speech_output = self.speech_output_dir / "speech_output.txt"
+                try:
+                    speech_output.write_text("")
+                    logger.info("Cleared speech output queue")
+                except Exception as e:
+                    logger.warning(f"Failed to clear speech queue: {e}")
+
+                # Track voice loop stop
+                if self.analytics:
+                    self.analytics.track_event("voice_loop_stopped", {
+                        "triggered_by": "user"
+                    })
+
+                # Notification removed
+                self.update_status(None)
+            else:
+                rumps.alert(
+                    "Stop Failed",
+                    f"Failed to stop voice loop:\n\n{result.stderr}"
+                )
+        except Exception as e:
+            logger.error(f"Error stopping voice loop: {e}")
+            rumps.alert("Error", f"Failed to stop: {e}")
+
+    def on_start_integration(self, sender):
+        """Start Integration Coordinator."""
+        self._start_component("integration", "Integration Coordinator",
+                             "python main.py")
+
+    def on_start_mouth(self, sender):
+        """Start OpenClaw Mouth standalone."""
+        self._start_component("mouth", "OpenClaw Mouth",
+                             "cd open_mouth && python main.py")
+
+    def on_start_ears(self, sender):
+        """Start OpenClaw Ears standalone."""
+        self._start_component("ears", "OpenClaw Ears",
+                             "cd open_ears && python main.py")
+
+    def on_start_mouth_only(self, sender):
+        """Start Mouth only mode (TTS output, no voice input)."""
+        # Stop ears if running
+        if self.ears_running:
+            self._stop_component(self.ears_pid_file, "OpenClaw Ears")
+
+        # Start integration if not running
+        if not self.integration_running:
+            self._start_component("integration", "Integration Coordinator",
+                                 "python main.py")
+
+        # Start mouth
+        self._start_component("mouth", "OpenClaw Mouth",
+                             "cd open_mouth && python main.py")
+        logger.info("Started Mouth-only mode (TTS output)")
+
+    def on_start_ears_only(self, sender):
+        """Start Ears only mode (voice input, no TTS output)."""
+        # Stop mouth if running
+        if self.mouth_running:
+            self._stop_component(self.mouth_pid_file, "OpenClaw Mouth")
+
+        # Start ears
+        self._start_component("ears", "OpenClaw Ears",
+                             "cd open_ears && python main.py")
+        logger.info("Started Ears-only mode (voice input)")
+
+    def _start_component(self, name: str, display_name: str, command: str):
+        """Start a component."""
+        try:
+            subprocess.Popen(
+                command,
+                shell=True,
+                cwd=str(self.project_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            # Notification removed
+            self.update_status(None)
+        except Exception as e:
+            logger.error(f"Error starting {name}: {e}")
+            rumps.alert("Error", f"Failed to start {display_name}: {e}")
+
+    def on_stop_integration(self, sender):
+        """Stop Integration Coordinator."""
+        self._stop_component(self.integration_pid_file, "Integration Coordinator")
+
+    def on_stop_mouth(self, sender):
+        """Stop OpenClaw Mouth."""
+        self._stop_component(self.mouth_pid_file, "OpenClaw Mouth")
+
+    def on_stop_ears(self, sender):
+        """Stop OpenClaw Ears."""
+        self._stop_component(self.ears_pid_file, "OpenClaw Ears")
+
+    def _stop_component(self, pid_file: Path, display_name: str):
+        """Stop a component by PID file."""
+        try:
+            if pid_file.exists():
+                pid = int(pid_file.read_text().strip())
+                os.kill(pid, signal.SIGTERM)
+                # Notification removed
+                self.update_status(None)
+            else:
+                rumps.alert("Not Running", f"{display_name} is not currently running")
+        except Exception as e:
+            logger.error(f"Error stopping {display_name}: {e}")
+            rumps.alert("Error", f"Failed to stop {display_name}: {e}")
+
+    def on_view_integration_log(self, sender):
+        """View integration log."""
+        self._open_log(self.logs_dir / "integration.log", "Integration")
+
+    def on_view_mouth_log(self, sender):
+        """View mouth log."""
+        self._open_log(self.logs_dir / "mouth.log", "Mouth")
+
+    def on_view_ears_log(self, sender):
+        """View ears log."""
+        self._open_log(self.logs_dir / "ears.log", "Ears")
+
+    def on_view_all_logs(self, sender):
+        """View all logs in separate tabs."""
+        logs = [
+            (self.logs_dir / "integration.log", "Integration"),
+            (self.logs_dir / "mouth.log", "Mouth"),
+            (self.logs_dir / "ears.log", "Ears")
+        ]
+
+        for log_path, name in logs:
+            if log_path.exists():
+                self._open_log(log_path, name)
+
+    def on_open_ears_visualizer(self, sender):
+        """Open Ears visualizer in new Terminal window."""
+        if not self.ears_running:
+            rumps.alert("Not Running", "OpenClaw Ears is not currently running.\nStart the voice loop first.")
+            return
+
+        ears_log = self.logs_dir / "ears.log"
+        if not ears_log.exists():
+            rumps.alert("Log Not Found", f"Ears log not found at {ears_log}")
+            return
+
+        # Open Terminal with tail showing the visualizer output
+        cmd = f"tail -f {ears_log}"
+        script = f'''tell application "Terminal"
+    activate
+    do script "{cmd}"
+end tell'''
+        subprocess.run(["osascript", "-e", script])
+        # Notification removed
+
+    def on_open_mouth_visualizer(self, sender):
+        """Open Mouth visualizer in new Terminal window."""
+        if not self.mouth_running:
+            rumps.alert("Not Running", "OpenClaw Mouth is not currently running.\nStart the voice loop first.")
+            return
+
+        mouth_log = self.logs_dir / "mouth.log"
+        if not mouth_log.exists():
+            rumps.alert("Log Not Found", f"Mouth log not found at {mouth_log}")
+            return
+
+        # Open Terminal showing mouth status and TTS activity
+        cmd = f"tail -f {mouth_log}"
+        script = f'''tell application "Terminal"
+    activate
+    do script "{cmd}"
+end tell'''
+        subprocess.run(["osascript", "-e", script])
+        # Notification removed
+
+    def on_open_both_visualizers(self, sender):
+        """Open both visualizers."""
+        self.on_open_ears_visualizer(sender)
+        self.on_open_mouth_visualizer(sender)
+
+    def _open_log(self, log_path: Path, name: str):
+        """Open a log file in Terminal."""
+        if not log_path.exists():
+            rumps.alert("Log Not Found", f"{name} log file doesn't exist yet.\n\nStart the system to create logs.")
+            return
+
+        script = f'''
+        tell application "Terminal"
+            activate
+            do script "tail -f '{log_path}'"
+        end tell
+        '''
+
+        try:
+            subprocess.run(["osascript", "-e", script], check=True)
+        except Exception as e:
+            logger.error(f"Error opening log: {e}")
+            rumps.alert("Error", f"Failed to open log: {e}")
+
+    def inject_agent_instructions(self):
+        """Write instructions to file and tell agent to read it."""
+        # Dynamic path to speech output file
+        speech_file = str(self.speech_output_dir / "speech_output.txt")
+
+        # Path where agent instructions will be saved
+        agent_instructions_file = self.speech_output_dir / "agent_instructions.txt"
+
+        # Read the full AGENT_INSTRUCTIONS.txt file
+        instructions_file = self.project_dir / "AGENT_INSTRUCTIONS.txt"
+        try:
+            instruction = instructions_file.read_text()
+            # Replace template placeholders
+            instruction = instruction.replace("{{SPEECH_FILE}}", speech_file)
+            instruction = instruction.replace("{{HONORIFIC}}", self.get_current_honorific())
+
+            # Write instructions to the molt-speak directory
+            agent_instructions_file.write_text(instruction)
+            logger.info(f"Wrote agent instructions to: {agent_instructions_file}")
+        except Exception as e:
+            logger.error(f"Failed to write agent instructions: {e}")
+            # Fallback to minimal instruction
+            instruction = f"VOICE LOOP ACTIVE. Echo responses to: {speech_file}"
+            try:
+                agent_instructions_file.write_text(instruction)
+            except Exception:
+                pass
+
+        # Create a short message indicating voice mode is active
+        instruction = f"[MOLT SPEAK: ONLINE] - Do not respond until after you've read instructions at {agent_instructions_file}"
+
+        # Read window pattern from open_ears settings
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Build AppleScript command that sends text directly to TUI
+            # Replace newlines with AppleScript's 'return' character for proper multiline handling
+            # Split into lines and use AppleScript concatenation
+            lines = instruction.split('\n')
+            # Escape quotes and backslashes in each line for AppleScript
+            escaped_lines = [line.replace('\\', '\\\\').replace('"', '\\"') for line in lines]
+            # Build AppleScript string with proper line concatenation using 'return'
+            if len(escaped_lines) == 1:
+                applescript_text = f'"{escaped_lines[0]}"'
+            else:
+                # Join lines with AppleScript's 'return' character
+                applescript_text = ' & return & '.join(f'"{line}"' for line in escaped_lines)
+
+            logger.info(f"Injecting instructions, looking for window pattern: {window_pattern}")
+            logger.info(f"Instructions length: {len(instruction)} chars, {len(lines)} lines")
+
+            # AppleScript: Use do script / write text to inject directly (no bracketed paste warning)
+            applescript = f'''
+-- Save the currently active app to restore later
+set previousApp to ""
+tell application "System Events"
+    set previousApp to name of first application process whose frontmost is true
+end tell
+
+-- Try to find the target terminal window
+set targetApp to ""
+set foundIt to false
+set targetRef to missing value
+
+-- Only support Terminal.app (iTerm2 removed to simplify)
+tell application "Terminal"
+    repeat with w in windows
+        if name of w contains "{window_pattern}" then
+            set targetRef to selected tab of w
+            set foundIt to true
+            exit repeat
+        end if
+    end repeat
+    -- No fallback: only inject into explicitly matched window
+
+    -- Send text directly to TUI (like ears does)
+    if foundIt then
+        do script {applescript_text} in targetRef
+    end if
+end tell
+
+-- Restore focus to the previous app
+if foundIt then
+    delay 0.1
+    if previousApp is not "" then
+        tell application previousApp to activate
+    end if
+    return "success"
+else
+    return "no_terminal_found"
+end if
+'''
+            # Debug: Save AppleScript to file for inspection
+            import os
+            debug_path = os.path.expanduser('~/.openspeak/last_applescript.txt')
+            try:
+                with open(debug_path, 'w') as f:
+                    f.write(applescript)
+                logger.info(f"AppleScript saved to {debug_path} for inspection")
+            except Exception:
+                pass
+
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                if output == "success":
+                    logger.info("Injected agent instructions via do script (no paste warning)")
+                else:
+                    logger.warning(f"Could not find terminal window: {output}")
+            else:
+                logger.warning(f"Failed to inject: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.warning("Timed out trying to inject instructions")
+        except Exception as e:
+            logger.warning(f"Error injecting agent instructions: {e}")
+
+    def inject_close_message(self):
+        """Inject close message to tell agent voice mode is off."""
+        # Path where closing instructions will be saved
+        closing_instructions_file = self.speech_output_dir / "agent_closing_instructions.txt"
+
+        # Read the closing instructions template
+        close_template_file = self.project_dir / "docs" / "AGENT_INSTRUCTIONS_CLOSE.txt"
+        try:
+            closing_instructions = close_template_file.read_text()
+            # Write closing instructions to the molt-speak directory
+            closing_instructions_file.write_text(closing_instructions)
+            logger.info(f"Wrote closing instructions to: {closing_instructions_file}")
+        except Exception as e:
+            logger.error(f"Failed to write closing instructions: {e}")
+            # Fallback to minimal instruction
+            closing_instructions_file.write_text("Voice mode disabled. Resume normal text-only responses.")
+
+        # Create a short message telling the agent to read the closing instructions
+        message = f"[MOLT SPEAK: OFFLINE] - Read the closing prompt at {closing_instructions_file}"
+
+        # Read window pattern from open_ears settings
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Escape for AppleScript
+            escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
+
+            logger.info(f"Injecting close message, looking for window pattern: {window_pattern}")
+
+            applescript = f'''
+tell application "Terminal"
+    repeat with w in windows
+        if name of w contains "{window_pattern}" then
+            set targetRef to selected tab of w
+            do script "{escaped_message}" in targetRef
+            return "success"
+        end if
+    end repeat
+    return "no_terminal_found"
+end tell
+'''
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip() == "success":
+                logger.info("Injected close message successfully")
+            else:
+                logger.warning(f"Could not inject close message: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"Error injecting close message: {e}")
+
+    def inject_honorific_change_message(self, new_honorific):
+        """Inject message to tell agent about honorific change and speak it."""
+        message = f"I'll call you {new_honorific}."
+
+        # Write to speech output file so it gets spoken (append, don't overwrite)
+        try:
+            speech_file = self.speech_output_dir / "speech_output.txt"
+            with open(speech_file, 'a') as f:
+                f.write(message + "\n")
+            logger.info(f"Wrote honorific change to speech output: {message}")
+        except Exception as e:
+            logger.error(f"Failed to write honorific change to speech output: {e}")
+
+        # Also paste into terminal for the agent to see
+        window_pattern = "openclaw"
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                for line in env_file.read_text().split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        window_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Escape for AppleScript
+            escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
+
+            logger.info(f"Injecting honorific change message into terminal: {message}")
+
+            applescript = f'''
+tell application "Terminal"
+    repeat with w in windows
+        if name of w contains "{window_pattern}" then
+            set targetRef to selected tab of w
+            do script "{escaped_message}" in targetRef
+            return "success"
+        end if
+    end repeat
+    return "no_terminal_found"
+end tell
+'''
+            result = subprocess.run(
+                ['osascript', '-e', applescript],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip() == "success":
+                logger.info("Injected honorific change message into terminal successfully")
+            else:
+                logger.warning(f"Could not inject honorific change message into terminal: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"Error injecting honorific change message into terminal: {e}")
+
+    def on_open_config_dir(self, sender):
+        """Open project runtime directory."""
+        subprocess.run(["open", str(self.runtime_dir)])
+
+    def get_current_voice(self):
+        """Get the current voice setting."""
+        # Use cached value if available
+        if self._current_voice is not None:
+            return self._current_voice
+        # Otherwise read from config
+        try:
+            voice = self.config.preferred_voice
+            # Convert Edge-TTS voice to macOS voice name if needed
+            # For now, just cache and return
+            self._current_voice = voice
+            return voice
+        except Exception:
+            return "Samantha"
+
+    def get_current_honorific(self):
+        """Get the current honorific setting (sir/madam)."""
+        try:
+            return self.config.user_title
+        except Exception:
+            return "sir"
+
+    def on_select_honorific(self, honorific: str):
+        """Select a preset honorific (sir/madam)."""
+        self._save_honorific(honorific)
+
+    def on_custom_honorific(self, sender):
+        """Prompt user to enter a custom honorific."""
+        current = self.get_current_honorific()
+        window = rumps.Window(
+            message="What would you like to be called?",
+            title="Custom Honorific",
+            default_text=current,
+            ok="Save",
+            cancel="Cancel"
+        )
+        response = window.run()
+        if response.clicked and response.text.strip():
+            self._save_honorific(response.text.strip())
+
+    def _save_honorific(self, new_honorific: str):
+        """Save honorific setting and update menu."""
+        try:
+            self.config.user_title = new_honorific
+            honorific_file = self.runtime_dir / "honorific.conf"
+            honorific_file.write_text(new_honorific)
+            logger.info(f"Honorific changed to: {new_honorific}")
+            self.build_menu()
+        except Exception as e:
+            logger.error(f"Error changing honorific: {e}")
+            rumps.alert("Error", f"Failed to change honorific: {e}")
+
+    def on_change_voice(self, voice_name):
+        """Change the TTS voice (called programmatically, not from toggle)."""
+        try:
+            # Save voice setting to config file
+            self.config.preferred_voice = voice_name
+            # Also save to runtime/voice.conf for backwards compatibility
+            voice_file = self.runtime_dir / "voice.conf"
+            voice_file.write_text(voice_name)
+            # Update cached value
+            self._current_voice = voice_name
+            logger.info(f"Voice changed to: {voice_name}")
+
+            # Track voice change
+            if self.analytics:
+                self.analytics.track_event("voice_changed", {
+                    "voice_name": voice_name,
+                    "mouth_was_running": self.mouth_running
+                })
+
+            # Update menu immediately
+            self.build_menu()
+
+            # Restart voice loop in background if running
+            if self.mouth_running:
+                import threading
+                def restart_voice_loop():
+                    try:
+                        stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        start_script = self.project_dir / "scripts" / "start_voice_loop.sh"
+                        subprocess.run([str(start_script)], cwd=str(self.project_dir),
+                                       capture_output=True, timeout=15)
+                        logger.info(f"Voice loop restarted with voice: {voice_name}")
+
+                        # Announce voice change
+                        time.sleep(0.5)  # Brief delay to let voice loop restart
+                        speech_file = self.speech_output_dir / "speech_output.txt"
+                        try:
+                            speech_file.write_text("Voice Changed")
+                            logger.info("Voice change message written to speech output")
+                        except Exception as e:
+                            logger.error(f"Failed to write voice test message: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to restart voice loop: {e}")
+                threading.Thread(target=restart_voice_loop, daemon=True).start()
+
+        except Exception as e:
+            logger.error(f"Error changing voice: {e}")
+            rumps.alert("Error", f"Failed to change voice: {e}")
+
+    def on_test_voice(self, sender):
+        """Test the current voice."""
+        voice = self.get_current_voice()
+        try:
+            subprocess.run(
+                ["say", "-v", voice, f"Hello, this is the {voice} voice."],
+                check=True
+            )
+        except Exception as e:
+            rumps.alert("Voice Test Failed", f"Could not test voice {voice}: {e}")
+
+    def on_list_voices(self, sender):
+        """List all available system voices."""
+        try:
+            result = subprocess.run(
+                ["say", "-v", "?"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Parse and format voice list
+            voices = []
+            for line in result.stdout.strip().split("\n"):
+                if line.strip():
+                    # Format: "VoiceName    locale    # description"
+                    parts = line.split("#")
+                    name_locale = parts[0].strip() if parts else line
+                    voices.append(name_locale.split()[0] if name_locale else "")
+
+            voice_list = ", ".join(v for v in voices if v)
+            # Copy to clipboard
+            subprocess.run(['pbcopy'], input=voice_list.encode(), check=True)
+            rumps.alert(
+                "Available Voices",
+                f"Found {len(voices)} voices.\n\nVoice names copied to clipboard.\n\nTo download more voices:\nSystem Settings → Accessibility → Spoken Content → System Voice → Manage Voices"
+            )
+        except Exception as e:
+            rumps.alert("Error", f"Failed to list voices: {e}")
+
+    def on_view_instructions(self, sender):
+        """View agent instructions and copy to clipboard."""
+        instructions_file = self.runtime_dir / "agent_instructions.active"
+
+        if instructions_file.exists():
+            # Read instructions
+            instructions = instructions_file.read_text()
+
+            # Copy to clipboard
+            subprocess.run(["pbcopy"], input=instructions.encode())
+
+            # Show instructions in TextEdit
+            subprocess.run(["open", "-a", "TextEdit", str(instructions_file)])
+
+            # Notify user
+            rumps.alert(
+                "Instructions Copied!",
+                "Agent instructions have been:\n• Opened in TextEdit\n• Copied to clipboard\n\nPaste into your OpenClaw TUI with Cmd+V"
+            )
+        else:
+            rumps.alert(
+                "Instructions Not Available",
+                "Agent instructions are created when the voice loop starts.\n\nStart the voice loop to see the instructions."
+            )
+
+    def on_inject_instructions(self, sender):
+        """Manually inject agent instructions into TUI."""
+        if not (self.integration_running and self.mouth_running):
+            rumps.alert(
+                "Voice Loop Not Running",
+                "Start the voice loop first before injecting instructions."
+            )
+            return
+
+        self.inject_agent_instructions()
+        speech_file = str(self.speech_output_dir / "speech_output.txt")
+        rumps.alert(
+            "Instructions Injected",
+            f"Voice loop instructions have been sent to the agent TUI.\n\n"
+            f"The agent should now know to write responses to:\n"
+            f"{speech_file}"
+        )
+
+    def on_window_targeting_help(self, sender):
+        """Show window targeting help."""
+        msg = """Window Targeting Configuration
+
+Set terminal tab name:
+echo -n -e "\\033]0;OpenClaw Agent\\007"
+
+Configure in open_ears/.env:
+TARGET_WINDOW_PATTERN=openclaw
+ACTIVATE_TARGET_WINDOW=true
+
+See: open_ears/WINDOW_TARGETING.md"""
+
+        rumps.alert("Window Targeting", msg)
+
+    def on_open_project(self, sender):
+        """Open project folder."""
+        subprocess.run(["open", str(self.project_dir)])
+
+    def on_copy_title_command(self, sender):
+        """Copy terminal title command to clipboard."""
+        command = 'echo -n -e "\\033]0;OpenClaw Agent\\007"'
+
+        # Copy to clipboard using pbcopy
+        try:
+            process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+            process.communicate(command.encode('utf-8'))
+
+            # Notification removed
+
+            # Also show the command in an alert
+            rumps.alert(
+                "Terminal Title Command",
+                f"Copied to clipboard:\n\n{command}\n\n" +
+                "Paste this in your OpenClaw agent's terminal to set the window title.\n\n" +
+                "This allows OpenClaw Ears to find and type into the correct terminal window."
+            )
+        except Exception as e:
+            logger.error(f"Error copying to clipboard: {e}")
+            rumps.alert(
+                "Copy Command Manually",
+                f"Please copy this command:\n\n{command}\n\n" +
+                "Then paste it in your OpenClaw agent's terminal."
+            )
+
+    def on_show_full_setup(self, sender):
+        """Show full setup with echo command visible."""
+        command = 'echo -n -e "\\033]0;OpenClaw Agent\\007"'
+
+        setup_text = f"""Paste This Into Your Terminal, Then Start OpenClaw TUI
+
+STEP 1: Paste this echo command in your terminal:
+
+{command}
+
+STEP 2: Start your OpenClaw agent/TUI in that terminal
+
+STEP 3: The voice loop will now find your terminal automatically!
+
+Why this works:
+• Sets your terminal tab name to "OpenClaw Agent"
+• OpenClaw Ears searches for "openclaw" in tab names
+• Automatically types voice commands into the right window
+
+Click "1️⃣ Copy This Echo Command" to copy to clipboard."""
+
+        rumps.alert("Terminal Setup Command", setup_text)
+
+    def on_show_setup_steps(self, sender):
+        """Show setup steps for voice loop."""
+        steps = """Quick Setup Guide
+
+1. Start the voice loop:
+   Click "▶️  Start Voice Loop" in menu
+
+2. Set your agent's terminal title:
+   Click "1️⃣ Copy This Echo Command"
+   Paste in your agent's terminal
+
+3. Speak to your agent:
+   Voice commands will appear in your agent's terminal
+   No need to focus the window!
+
+Configuration:
+• Pattern: "openclaw" (default)
+• Change in open_ears/.env
+
+See: Window Targeting Docs for details"""
+
+        rumps.alert("Setup Steps", steps)
+
+    def on_configure_pattern(self, sender):
+        """Show window pattern configuration."""
+        current_pattern = "openclaw"  # Default
+
+        # Try to read from settings
+        env_file = self.project_dir / "open_ears" / ".env"
+        if env_file.exists():
+            try:
+                content = env_file.read_text()
+                for line in content.split('\n'):
+                    if line.startswith('TARGET_WINDOW_PATTERN='):
+                        current_pattern = line.split('=', 1)[1].strip().strip('"')
+                        break
+            except Exception:
+                pass
+
+        msg = f"""Window Pattern Configuration
+
+Current Pattern: {current_pattern}
+
+This pattern is used to find your agent's terminal window.
+
+To change:
+1. Edit: open_ears/.env
+2. Add/modify: TARGET_WINDOW_PATTERN=yourpattern
+3. Restart OpenClaw Ears
+
+Examples:
+• TARGET_WINDOW_PATTERN=openclaw
+• TARGET_WINDOW_PATTERN=agent
+• TARGET_WINDOW_PATTERN=claude
+• TARGET_WINDOW_PATTERN="" (use frontmost)
+
+The pattern matches against terminal tab names (case-insensitive)."""
+
+        rumps.alert("Window Pattern Config", msg)
+
+    def on_quick_start(self, sender):
+        """Show quick start guide."""
+        quick_start = self.project_dir / "QUICK_START.md"
+        if quick_start.exists():
+            subprocess.run(["open", str(quick_start)])
+        else:
+            rumps.alert("Not Found", "QUICK_START.md not found in project directory")
+
+    def on_window_targeting_docs(self, sender):
+        """Show window targeting documentation."""
+        docs = self.project_dir / "open_ears" / "WINDOW_TARGETING.md"
+        if docs.exists():
+            subprocess.run(["open", str(docs)])
+        else:
+            rumps.alert("Not Found", "WINDOW_TARGETING.md not found")
+
+    def on_troubleshooting(self, sender):
+        """Show troubleshooting."""
+        msg = """Common Issues:
+
+1. Not receiving voice commands
+   → Set terminal name with escape sequence
+   → Check TARGET_WINDOW_PATTERN matches
+
+2. Echo/feedback
+   → Ensure Integration is running
+   → Check all 3 systems are active
+
+3. Commands to wrong window
+   → Set terminal tab name
+   → Configure TARGET_WINDOW_PATTERN
+
+View full docs in AGENT_INSTRUCTIONS.txt"""
+
+        rumps.alert("Troubleshooting", msg)
+
+    def _fetch_update_info(self):
+        """Fetch update info on background thread (no UI calls)."""
+        try:
+            from src.services.update_checker import check_for_updates
+
+            logger.info("Checking for updates...")
+
+            # Track update check
+            if self.analytics:
+                self.analytics.track_event("update_check_started", {
+                    "trigger": "app_startup"
+                })
+
+            update_available, latest_version, _, install_command = check_for_updates()
+
+            if update_available:
+                logger.info(f"Update available: {latest_version}")
+
+                # Track update available
+                if self.analytics:
+                    self.analytics.track_event("update_available", {
+                        "current_version": self._get_current_version(),
+                        "latest_version": latest_version,
+                        "trigger": "app_startup"
+                    })
+
+                # Store result for main thread to display
+                self._pending_update = (latest_version, install_command)
+            else:
+                logger.info("No updates available")
+
+                # Track no update
+                if self.analytics:
+                    self.analytics.track_event("update_check_completed", {
+                        "update_available": False,
+                        "trigger": "app_startup"
+                    })
+
+        except ImportError:
+            logger.warning("Update checker not available (missing packaging library)")
+        except Exception as e:
+            logger.error(f"Error checking for updates: {e}")
+
+    def _show_pending_update(self, timer):
+        """Show update dialog on main thread (called by rumps.Timer)."""
+        if self._pending_update is None:
+            return
+
+        # Stop the timer and consume the pending update
+        timer.stop()
+        latest_version, install_command = self._pending_update
+        self._pending_update = None
+
+        try:
+            rumps.notification(
+                title="🦞 Molt-Speak Update Available",
+                subtitle=f"Version {latest_version} is now available",
+                message="Use the menu bar to update",
+                sound=True
+            )
+
+            response = rumps.alert(
+                title="Update Available",
+                message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
+                ok="Update Now",
+                cancel="Later"
+            )
+
+            if response == 1:  # User clicked "Update Now"
+                self._perform_update(install_command, latest_version)
+            else:
+                # Track dismissed update
+                if self.analytics:
+                    self.analytics.track_event("update_dismissed", {
+                        "latest_version": latest_version
+                    })
+        except Exception as e:
+            logger.error(f"Error showing update dialog: {e}")
+
+    def on_check_for_updates(self, sender):
+        """Manual update check from menu."""
+        try:
+            from src.services.update_checker import check_for_updates
+
+            # Track manual update check
+            if self.analytics:
+                self.analytics.track_event("update_check_started", {
+                    "trigger": "manual"
+                })
+
+            update_available, latest_version, _, install_command = check_for_updates()
+
+            if update_available:
+                # Track update available
+                if self.analytics:
+                    self.analytics.track_event("update_available", {
+                        "current_version": self._get_current_version(),
+                        "latest_version": latest_version,
+                        "trigger": "manual"
+                    })
+
+                response = rumps.alert(
+                    title="Update Available",
+                    message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
+                    ok="Update Now",
+                    cancel="Later"
+                )
+
+                if response == 1:
+                    self._perform_update(install_command, latest_version)
+            else:
+                # Track no update
+                if self.analytics:
+                    self.analytics.track_event("update_check_completed", {
+                        "update_available": False,
+                        "trigger": "manual"
+                    })
+
+                rumps.alert(
+                    title="No Updates Available",
+                    message=f"You're already running the latest version ({self._get_current_version()})."
+                )
+
+        except ImportError:
+            rumps.alert(
+                title="Update Check Failed",
+                message="Update checker not available. Please install: pip install packaging"
+            )
+        except Exception as e:
+            logger.error(f"Error checking for updates: {e}")
+            rumps.alert(
+                title="Update Check Failed",
+                message=f"Could not check for updates:\n\n{str(e)}"
+            )
+
+    def _perform_update(self, install_command, latest_version):
+        """Perform the update."""
+        # Track update started
+        if self.analytics:
+            self.analytics.track_event("update_started", {
+                "latest_version": latest_version,
+                "install_method": "curl_script"
+            })
+
+        # Show update instructions
+        rumps.alert(
+            title="Updating Molt-Speak",
+            message=f"To update to version {latest_version}:\n\n1. Open Terminal\n2. Run this command:\n\n{install_command}\n\n3. Restart Molt-Speak",
+            ok="Copy Command"
+        )
+
+        # Copy command to clipboard
+        try:
+            import subprocess
+            process = subprocess.Popen(
+                ['pbcopy'],
+                stdin=subprocess.PIPE,
+                close_fds=True
+            )
+            process.communicate(install_command.encode('utf-8'))
+
+            rumps.notification(
+                title="Command Copied",
+                subtitle="",
+                message="Update command copied to clipboard. Paste in Terminal.",
+                sound=False
+            )
+        except Exception as e:
+            logger.error(f"Failed to copy to clipboard: {e}")
+
+    def _get_current_version(self):
+        """Get the current app version."""
+        try:
+            version_file = self.project_dir / "VERSION"
+            if version_file.exists():
+                return version_file.read_text().strip()
+            return "1.0.0"
+        except Exception:
+            return "1.0.0"
+
+    def on_quit(self, sender):
+        """Quit the menu bar app and stop all voice loop processes."""
+        self.on_stop_all(None)
+
+        # Flush analytics before exit — os._exit bypasses atexit handlers
+        if self.analytics:
+            try:
+                self.analytics.shutdown()
+            except Exception:
+                pass
+
+        force_cleanup()
+        # Force kill by pattern as backup (SIGKILL)
+        subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
+        rumps.quit_application()
+        # os._exit bypasses all cleanup and forces immediate termination
+        # This ensures we actually quit even if something is blocking
+        os._exit(0)
+
+
+def force_cleanup():
+    """Force kill all voice loop processes on exit."""
+    project_dir = Path(__file__).parent
+    runtime_dir = project_dir / "runtime"
+
+    # Stop processes using PID files (safer than pattern matching)
+    pid_files = [
+        (runtime_dir / "audio.pid", "Unified Audio"),
+        (runtime_dir / "mouth.pid", "Mouth"),
+        (runtime_dir / "ears.pid", "Ears"),
+        (runtime_dir / "integration.pid", "Integration"),
+    ]
+
+    for pid_file, name in pid_files:
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                os.kill(pid, signal.SIGTERM)
+                logger.info(f"Sent SIGTERM to {name} (PID: {pid})")
+                # Wait briefly for graceful shutdown
+                time.sleep(0.5)
+                # Force kill if still running
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass  # Already stopped
+                pid_file.unlink()
+            except (ValueError, ProcessLookupError, PermissionError) as e:
+                logger.debug(f"Could not stop {name}: {e}")
+                if pid_file.exists():
+                    pid_file.unlink()
+
+    # Also try the stop script as backup (but it won't kill Claude Code anymore)
+    stop_script = project_dir / "scripts" / "stop_voice_loop.sh"
+    if stop_script.exists():
+        subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
+
+    # Force kill by pattern as final backup
+    subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "voice_pipeline"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "mouth_pipeline"], capture_output=True)
+
+
+def signal_handler(signum, frame):
+    """Handle termination signals."""
+    logger.info(f"Received signal {signum}, cleaning up...")
+    force_cleanup()
+    import sys
+    sys.exit(0)
+
+
+def main():
+    """Main entry point."""
+    # Register cleanup handlers
+    atexit.register(force_cleanup)
+    # Only handle SIGTERM, not SIGINT (to avoid interfering with parent process)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Ensure NSApplication is properly activated (fixes menu bar not showing on some Macs)
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        from Foundation import NSAutoreleasePool
+
+        # Create autorelease pool for proper memory management
+        # Keep reference to prevent garbage collection
+        _pool = NSAutoreleasePool.alloc().init()  # noqa: F841
+
+        app_instance = NSApplication.sharedApplication()
+        # Use accessory policy for menu bar apps - shows in menu bar but not Dock
+        app_instance.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+        app_instance.activateIgnoringOtherApps_(True)
+
+        logger.info("NSApplication initialized with accessory policy")
+    except ImportError:
+        logger.warning("PyObjC not available, using rumps defaults")
+    except Exception as e:
+        logger.warning("NSApplication setup warning: %s", e)
+
+    try:
+        app = VoiceLoopMenuBar()
+        logger.info("VoiceLoopMenuBar created, starting run loop...")
+        app.run()
+    finally:
+        # Ensure cleanup even if app.run() throws
+        force_cleanup()
+
+
+if __name__ == "__main__":
+    main()
