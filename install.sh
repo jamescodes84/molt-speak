@@ -78,12 +78,9 @@ else
 fi
 
 # Clone or update repository
-if [ -d "$INSTALL_DIR" ]; then
+if [ -d "$INSTALL_DIR/.git" ]; then
     echo -e "${YELLOW}! Molt-Speak directory exists. Updating...${NC}"
     cd "$INSTALL_DIR"
-
-    # Fetch first so we can reset to remote
-    git fetch origin
 
     # Remove venv before reset to avoid conflicts (it was tracked in old commits)
     if [ -d "$INSTALL_DIR/venv" ]; then
@@ -91,15 +88,53 @@ if [ -d "$INSTALL_DIR" ]; then
         rm -rf "$INSTALL_DIR/venv"
     fi
 
-    # Reset to remote branch (not local HEAD) to skip over commits where venv was tracked
-    git reset --hard origin/$BRANCH 2>/dev/null || true
-    # Clean untracked files but preserve runtime/ (contains user config)
-    git clean -fd -e runtime/ 2>/dev/null || true
-    git checkout $BRANCH 2>/dev/null || true
+    # Try to update via git — if anything fails, fall back to fresh clone
+    UPDATE_OK=true
+    git fetch origin 2>&1 || UPDATE_OK=false
+    if [ "$UPDATE_OK" = true ]; then
+        git reset --hard origin/$BRANCH 2>&1 || UPDATE_OK=false
+    fi
+    if [ "$UPDATE_OK" = true ]; then
+        git clean -fd -e runtime/ 2>/dev/null || true
+    fi
+
+    if [ "$UPDATE_OK" = false ]; then
+        echo -e "${YELLOW}! Git update failed. Performing fresh install...${NC}"
+        # Preserve runtime config
+        if [ -d "$INSTALL_DIR/runtime" ]; then
+            cp -r "$INSTALL_DIR/runtime" /tmp/molt-speak-runtime-backup 2>/dev/null || true
+        fi
+        cd "$HOME"
+        rm -rf "$INSTALL_DIR"
+        git clone -b $BRANCH "$REPO_URL" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+        # Restore runtime config
+        if [ -d /tmp/molt-speak-runtime-backup ]; then
+            cp -r /tmp/molt-speak-runtime-backup/* "$INSTALL_DIR/runtime/" 2>/dev/null || true
+            rm -rf /tmp/molt-speak-runtime-backup
+        fi
+    fi
 else
+    # No .git directory — clean slate or corrupted install
+    if [ -d "$INSTALL_DIR" ]; then
+        echo -e "${YELLOW}! Corrupted install detected. Performing fresh install...${NC}"
+        # Preserve runtime config
+        if [ -d "$INSTALL_DIR/runtime" ]; then
+            cp -r "$INSTALL_DIR/runtime" /tmp/molt-speak-runtime-backup 2>/dev/null || true
+        fi
+        rm -rf "$INSTALL_DIR"
+    fi
+
     echo -e "${YELLOW}! Cloning Molt-Speak repository (branch: $BRANCH)...${NC}"
     git clone -b $BRANCH "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
+
+    # Restore runtime config if backed up
+    if [ -d /tmp/molt-speak-runtime-backup ]; then
+        mkdir -p "$INSTALL_DIR/runtime"
+        cp -r /tmp/molt-speak-runtime-backup/* "$INSTALL_DIR/runtime/" 2>/dev/null || true
+        rm -rf /tmp/molt-speak-runtime-backup
+    fi
 fi
 
 echo -e "${GREEN}✓${NC} Repository ready at $INSTALL_DIR"

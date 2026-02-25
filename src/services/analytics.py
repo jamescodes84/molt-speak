@@ -113,6 +113,19 @@ class AnalyticsManager:
         # Load or create persistent state
         self._load_state()
 
+        # Identify user in PostHog so they appear in Persons
+        if POSTHOG_AVAILABLE and not self.disabled and self.user_id:
+            try:
+                posthog.identify(
+                    distinct_id=self.user_id,
+                    properties={
+                        "app_version": self.app_version,
+                        "platform": os.uname().sysname
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to identify user: {e}")
+
         # Register shutdown handler
         atexit.register(self.shutdown)
 
@@ -251,8 +264,8 @@ class AnalyticsManager:
         if POSTHOG_AVAILABLE and not self.disabled:
             try:
                 posthog.identify(
-                    self.user_id,
-                    {
+                    distinct_id=self.user_id,
+                    properties={
                         "app_version": self.app_version,
                         "total_sessions": total_sessions + 1,
                         "platform": os.uname().sysname

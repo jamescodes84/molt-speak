@@ -67,6 +67,8 @@ def main() -> int:
 
     # Initialize analytics (uses persistent dir that survives uninstalls)
     analytics = initialize_analytics(
+        api_key=settings.POSTHOG_API_KEY,
+        host=settings.POSTHOG_HOST,
         disabled=settings.POSTHOG_DISABLED
     )
 

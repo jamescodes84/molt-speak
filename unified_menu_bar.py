@@ -123,10 +123,16 @@ class VoiceLoopMenuBar(rumps.App):
         threading.Timer(1.0, delayed_start).start()
 
         # Check for updates after startup (non-blocking)
+        # HTTP check runs on background thread, UI shown via timer on main thread
+        self._pending_update = None  # Store update info from background thread
         def check_updates():
             time.sleep(2.0)  # Wait for app to fully initialize
-            self.check_for_updates_on_startup()
+            self._fetch_update_info()
         threading.Thread(target=check_updates, daemon=True).start()
+
+        # Timer polls for update result and shows dialog on main thread
+        self._update_ui_timer = rumps.Timer(self._show_pending_update, 1.0)
+        self._update_ui_timer.start()
 
         logger.info("Menu bar app initialized with title: %s", self.title)
         logger.info("Unified Voice Loop Menu Bar initialized")
@@ -1198,7 +1204,7 @@ end if
         closing_instructions_file = self.speech_output_dir / "agent_closing_instructions.txt"
 
         # Read the closing instructions template
-        close_template_file = self.project_dir / "AGENT_INSTRUCTIONS_CLOSE.txt"
+        close_template_file = self.project_dir / "docs" / "AGENT_INSTRUCTIONS_CLOSE.txt"
         try:
             closing_instructions = close_template_file.read_text()
             # Write closing instructions to the molt-speak directory
@@ -1666,8 +1672,8 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
 
         rumps.alert("Troubleshooting", msg)
 
-    def check_for_updates_on_startup(self):
-        """Check for updates when app starts (runs in background thread)."""
+    def _fetch_update_info(self):
+        """Fetch update info on background thread (no UI calls)."""
         try:
             from src.services.update_checker import check_for_updates
 
@@ -1692,30 +1698,8 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
                         "trigger": "app_startup"
                     })
 
-                # Show update dialog on main thread
-                rumps.notification(
-                    title="🦞 Molt-Speak Update Available",
-                    subtitle=f"Version {latest_version} is now available",
-                    message="Click to view release notes",
-                    sound=True
-                )
-
-                # Prompt user
-                response = rumps.alert(
-                    title="Update Available",
-                    message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
-                    ok="Update Now",
-                    cancel="Later"
-                )
-
-                if response == 1:  # User clicked "Update Now"
-                    self._perform_update(install_command, latest_version)
-                else:
-                    # Track dismissed update
-                    if self.analytics:
-                        self.analytics.track_event("update_dismissed", {
-                            "latest_version": latest_version
-                        })
+                # Store result for main thread to display
+                self._pending_update = (latest_version, install_command)
             else:
                 logger.info("No updates available")
 
@@ -1730,6 +1714,42 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
             logger.warning("Update checker not available (missing packaging library)")
         except Exception as e:
             logger.error(f"Error checking for updates: {e}")
+
+    def _show_pending_update(self, timer):
+        """Show update dialog on main thread (called by rumps.Timer)."""
+        if self._pending_update is None:
+            return
+
+        # Stop the timer and consume the pending update
+        timer.stop()
+        latest_version, install_command = self._pending_update
+        self._pending_update = None
+
+        try:
+            rumps.notification(
+                title="🦞 Molt-Speak Update Available",
+                subtitle=f"Version {latest_version} is now available",
+                message="Use the menu bar to update",
+                sound=True
+            )
+
+            response = rumps.alert(
+                title="Update Available",
+                message=f"Molt-Speak {latest_version} is available!\n\nYou're currently on version {self._get_current_version()}.\n\nWould you like to update now?",
+                ok="Update Now",
+                cancel="Later"
+            )
+
+            if response == 1:  # User clicked "Update Now"
+                self._perform_update(install_command, latest_version)
+            else:
+                # Track dismissed update
+                if self.analytics:
+                    self.analytics.track_event("update_dismissed", {
+                        "latest_version": latest_version
+                    })
+        except Exception as e:
+            logger.error(f"Error showing update dialog: {e}")
 
     def on_check_for_updates(self, sender):
         """Manual update check from menu."""
@@ -1835,6 +1855,14 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
     def on_quit(self, sender):
         """Quit the menu bar app and stop all voice loop processes."""
         self.on_stop_all(None)
+
+        # Flush analytics before exit — os._exit bypasses atexit handlers
+        if self.analytics:
+            try:
+                self.analytics.shutdown()
+            except Exception:
+                pass
+
         force_cleanup()
         # Force kill by pattern as backup (SIGKILL)
         subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)

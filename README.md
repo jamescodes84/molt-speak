@@ -174,6 +174,16 @@ with open(speech_file, "a") as f:
 1. Check your system volume
 2. Verify the speech file exists: `ls ~/openclaw-workspace/molt-speak/app/runtime/speech_output.txt`
 
+### Update stuck on old version
+
+If `moltspeak update` doesn't pick up the latest version, do a clean reinstall:
+```bash
+moltspeak kill
+rm -rf ~/openclaw-workspace/molt-speak
+curl -fsSL https://raw.githubusercontent.com/jamescodes84/molt-speak/main/install.sh | bash
+```
+Your runtime config (voice, provider, sensitivity) will be preserved automatically.
+
 ### Permission denied errors
 
 Run a clean reinstall:
@@ -217,6 +227,7 @@ rm -rf ~/Library/Application\ Support/molt-speak/
 | 0.5.0 | 2026-02-06 | Stability & polish — Persistent analytics across uninstalls, daily active user heartbeat, voice selection fixes, async/sync corrections |
 | 0.9.0 | 2026-02-06 | Command rename `molt-speak` → `moltspeak`, ElevenLabs premium TTS, CodeRabbit CI integration, lint & error handling fixes |
 | 1.0.0 | 2026-02-06 | Public release — Custom honorific text input, privacy section, mic & barge-in sensitivity tuning, 24+ Edge-TTS voices, full documentation |
+| 1.0.5 | 2026-02-10 | Update fix — Fixed update dialog crash (NSWindow threading), hardened install script with fresh-clone fallback, fixed PostHog analytics (flush before exit, correct identify API, explicit API key passthrough) |
 
 ---
 
