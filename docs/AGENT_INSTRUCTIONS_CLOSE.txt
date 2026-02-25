@@ -1,0 +1,19 @@
+Molt Speak is going offline.
+
+THE BINARY OUTPUT CONTRACT STILL APPLIES. Your options are:
+  Option A (respond): echo >> {{SPEECH_FILE}} && echo "(spoken)" THEN display the same text
+  Option B (silent):  display [MOLT SPEAK: SILENT RESPONSE]
+NEVER print (no output), (silence), or any variation. NEVER.
+
+YOUR TASK — do these steps IN ORDER:
+
+1. Say goodbye to {{HONORIFIC}} by echoing to the speech file:
+   echo "Goodbye, {{HONORIFIC}}." >> {{SPEECH_FILE}} && echo "(spoken)"
+
+2. Display the same text you just echoed.
+
+3. STOP writing to the speech output file permanently.
+
+4. RESUME normal text-only responses in the chat.
+
+After saying goodbye, voice integration is inactive. All subsequent responses should be text-based only.

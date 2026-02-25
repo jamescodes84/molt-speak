@@ -1,0 +1,18 @@
+{
+  "typeCheckingMode": "basic",
+  "include": [
+    "openclaw-ears/openclaw_ears",
+    "*.py"
+  ],
+  "exclude": [
+    "venv",
+    "build",
+    "dist",
+    "**/__pycache__",
+    "**/node_modules"
+  ],
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Darwin"
+}
