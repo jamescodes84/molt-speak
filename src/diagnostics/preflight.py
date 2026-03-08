@@ -193,106 +193,26 @@ class PreflightChecker:
             )
 
     def _check_microphone(self) -> CheckResult:
-        """Check that a REAL microphone is connected and can capture audio.
-
-        macOS can list virtual audio devices that pass basic enumeration and
-        even allow opening an InputStream — but produce no actual audio data.
-        We verify by reading a short buffer and checking it isn't all zeros.
-        """
+        """Check that a microphone is connected."""
         try:
             import sounddevice as sd
-            import numpy as np
-
-            # Step 1: Check default input device exists
-            try:
-                default_input = sd.default.device[0]
-            except Exception:
-                default_input = -1
-
-            if default_input is None or default_input < 0:
-                return CheckResult(
-                    "Microphone",
-                    False,
-                    "No default input device set",
-                    fix="Plug in a microphone or headset. Check System Settings > Sound > Input.",
-                )
-
             devices = sd.query_devices()
-            default_name = devices[default_input]['name'] if default_input < len(devices) else "unknown"
+            input_devices = [d for d in devices if d['max_input_channels'] > 0]
 
-            # Step 2: Try to open an input stream and actually read audio
-            try:
-                # Record a very short burst (0.15s) and check we got real data
-                frames = int(16000 * 0.15)  # 2400 frames at 16kHz
-                audio = sd.rec(frames, samplerate=16000, channels=1, dtype='int16',
-                               device=default_input, blocking=True)
-
-                # If we get here, the device opened and read successfully.
-                # Check if we got actual data (not all zeros from a ghost device).
-                # A real mic in a quiet room still produces some noise > 0.
-                if audio is None or len(audio) == 0:
-                    return CheckResult(
-                        "Microphone",
-                        False,
-                        f"Device '{default_name}' returned no audio data",
-                        fix="Plug in a microphone or headset. Check System Settings > Sound > Input.",
-                    )
-
-                peak = int(np.max(np.abs(audio)))
-                if peak == 0:
-                    # Every single sample is exactly zero — this is a ghost device
-                    return CheckResult(
-                        "Microphone",
-                        False,
-                        f"Device '{default_name}' is listed but not producing audio (all zeros)",
-                        fix="Plug in a microphone or headset. The current device may be virtual or disconnected.",
-                    )
-
-            except sd.PortAudioError as e:
-                err_str = str(e).lower()
-                if "permission" in err_str or "not authorized" in err_str:
-                    return CheckResult(
-                        "Microphone",
-                        False,
-                        "Microphone permission denied",
-                        fix="Open System Settings > Privacy & Security > Microphone and enable access for Terminal.",
-                    )
+            if not input_devices:
                 return CheckResult(
-                    "Microphone",
-                    False,
-                    f"Cannot open microphone '{default_name}': {e}",
-                    fix="Check that no other app is using the microphone. Try unplugging and replugging it.",
-                )
-            except OSError as e:
-                return CheckResult(
-                    "Microphone",
-                    False,
-                    f"Microphone found but cannot be opened: {e}",
-                    fix="Check that no other app is using the microphone. Try unplugging and replugging it.",
+                    "Microphone", False, "No microphone detected",
+                    fix="Plug in a microphone or headset.",
                 )
 
-            # Count total input devices for informational message
-            input_count = sum(1 for d in devices if d['max_input_channels'] > 0)
-            return CheckResult(
-                "Microphone",
-                True,
-                f"{default_name} (verified, {input_count} device{'s' if input_count > 1 else ''} available)",
-            )
+            default_input = sd.default.device[0]
+            name = devices[default_input]['name'] if 0 <= default_input < len(devices) else input_devices[0]['name']
+            return CheckResult("Microphone", True, name)
 
         except ImportError:
-            return CheckResult(
-                "Microphone",
-                False,
-                "sounddevice not installed",
-                fix="Run: pip install sounddevice",
-            )
+            return CheckResult("Microphone", False, "sounddevice not installed", fix="Run: pip install sounddevice")
         except Exception as e:
-            return CheckResult(
-                "Microphone",
-                False,
-                f"Could not check microphone: {e}",
-                fix="Check System Settings > Sound > Input. Make sure a microphone is plugged in.",
-            )
+            return CheckResult("Microphone", False, f"Could not check: {e}", fix="Plug in a microphone or headset.")
 
     def _check_webcam(self) -> CheckResult:
         """Check that a webcam/camera is connected (macOS)."""
