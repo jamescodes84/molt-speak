@@ -1098,89 +1098,93 @@ class VoiceLoopMenuBar(rumps.App):
         return mod.EnrollmentSession
 
     def on_enroll_voice(self, sender):
-        """Launch voice enrollment in a background thread."""
-        import threading
+        """Interactive voice enrollment using native macOS dialogs."""
+        # Welcome dialog
+        r = rumps.alert(
+            "Voice Enrollment",
+            "Molt Speak will learn your voice so it can ignore other speakers.\n\n"
+            "You'll say 5 short phrases (4 seconds each).\n"
+            "Find a quiet room and click Start when ready.",
+            ok="Start", cancel="Cancel"
+        )
+        if r == 0:
+            return
 
-        def _do_enrollment():
-            try:
-                SpeakerGate = self._load_speaker_gate_class()
-                EnrollmentSession = self._load_enrollment_class()
+        # Stop voice pipeline to free the microphone
+        was_running = self.ears_running
+        if was_running:
+            self.on_stop_all(None)
+            import time as _time
+            _time.sleep(2)  # Wait for processes to fully stop
 
-                profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
-                gate = SpeakerGate(profile_path=profile_path)
-                session = EnrollmentSession(gate)
+        try:
+            SpeakerGate = self._load_speaker_gate_class()
+            EnrollmentSession = self._load_enrollment_class()
 
-                rumps.notification(
-                    "Crowd Control — Enrollment",
-                    "",
-                    f"Recording {session.num_phrases} phrases. Speak when you hear the chime.",
-                    sound=True
-                )
+            profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
+            gate = SpeakerGate(profile_path=profile_path)
+            session = EnrollmentSession(gate)
 
-                import time as _time
-                _time.sleep(3)  # Give user time to read notification
+            for i, prompt in enumerate(session.prompts):
+                while True:
+                    # Show phrase — user clicks Record when ready
+                    r = rumps.alert(
+                        f"Phrase {i + 1} of {session.num_phrases}",
+                        f'Click Record, then say:\n\n"{prompt}"',
+                        ok="Record", cancel="Cancel"
+                    )
+                    if r == 0:  # Cancel
+                        return
 
-                for i, prompt in enumerate(session.prompts):
-                    attempts = 0
-                    while attempts < 2:  # Allow one retry per phrase
-                        rumps.notification(
-                            f"Phrase {i + 1}/{session.num_phrases}",
-                            "Recording starts in 2 seconds...",
-                            f'Say: "{prompt}"',
-                            sound=True
+                    # Audio cue + visual indicator
+                    rumps.notification("Recording...", "",
+                        f"Phrase {i + 1}/{session.num_phrases} — speak now!",
+                        sound=True)
+                    self.title = f"\U0001f3a4 {i + 1}/{session.num_phrases}"
+
+                    # Record (blocks ~4s — user is speaking, no interaction needed)
+                    audio = session.record_phrase()
+                    self.title = "\U0001f99e"
+
+                    if audio is not None and session.add_recording(audio):
+                        logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
+                        break  # Success — next phrase
+                    else:
+                        r = rumps.alert(
+                            "Try Again",
+                            "Recording was too quiet.\n"
+                            "Speak a bit louder and try again.",
+                            ok="Retry", cancel="Cancel"
                         )
-                        _time.sleep(2)  # Wait for user to see notification and prepare
+                        if r == 0:
+                            return
 
-                        audio = session.record_phrase()
-                        if audio is not None and session.add_recording(audio):
-                            logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
-                            break
-                        else:
-                            attempts += 1
-                            if attempts < 2:
-                                rumps.notification(
-                                    "Enrollment",
-                                    "",
-                                    f"Phrase {i + 1} too quiet — retrying...",
-                                    sound=False
-                                )
-                                _time.sleep(1)
-
-                if session.is_complete and session.finalize():
-                    self.config.crowd_control_enabled = True
-                    # Flag for main thread to rebuild menu
-                    self._pending_menu_rebuild = True
-                    rumps.notification(
-                        "Crowd Control",
-                        "",
-                        "Voice profile saved! Restart Molt Speak to activate.",
-                        sound=True
-                    )
-                else:
-                    rumps.notification(
-                        "Crowd Control",
-                        "",
-                        "Enrollment incomplete. Please try again in a quieter room.",
-                        sound=False
-                    )
-            except ImportError as e:
-                logger.error(f"Missing dependency for enrollment: {e}")
-                rumps.notification(
-                    "Crowd Control",
-                    "",
-                    f"Missing dependency: {e}",
-                    sound=False
+            # Finalize enrollment
+            if session.finalize():
+                self.config.crowd_control_enabled = True
+                self._pending_menu_rebuild = True
+                rumps.alert(
+                    "Voice Profile Saved!",
+                    "Crowd Control is now active.\n"
+                    "Molt Speak will only respond to your voice."
                 )
-            except Exception as e:
-                logger.error(f"Enrollment failed: {e}")
-                rumps.notification(
-                    "Crowd Control",
-                    "",
-                    f"Enrollment failed: {e}",
-                    sound=False
-                )
+            else:
+                rumps.alert("Enrollment Failed",
+                    "Could not create voice profile. Please try again.")
 
-        threading.Thread(target=_do_enrollment, daemon=True).start()
+        except ImportError as e:
+            logger.error(f"Missing dependency for enrollment: {e}")
+            rumps.alert("Missing Dependency",
+                f"Required package not installed:\n{e}")
+        except Exception as e:
+            logger.error(f"Enrollment failed: {e}")
+            rumps.alert("Enrollment Error",
+                f"Something went wrong:\n{e}")
+        finally:
+            self.title = "\U0001f99e"
+            # Restart voice pipeline if it was running before enrollment
+            if was_running:
+                self.on_start_all(None)
 
     def on_clear_voice_profile(self, sender):
         """Delete the enrolled voice profile."""
