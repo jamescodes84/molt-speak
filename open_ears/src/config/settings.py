@@ -100,3 +100,12 @@ ACTIVATE_TARGET_WINDOW: bool = os.getenv("ACTIVATE_TARGET_WINDOW", "true").lower
 # ============================================================================
 USE_CACHE: bool = os.getenv("USE_CACHE", "false").lower() == "true"
 DEBUG_MODE: bool = os.getenv("DEBUG_MODE", "false").lower() == "true"
+
+# ============================================================================
+# Crowd Control (Speaker Verification Gate)
+# ============================================================================
+# Off by default — user opts in via "Crowd Control" in the menu bar
+CROWD_CONTROL_ENABLED: bool = os.getenv("CROWD_CONTROL_ENABLED", "false").lower() == "true"
+SPEAKER_GATE_THRESHOLD: float = float(os.getenv("SPEAKER_GATE_THRESHOLD", "0.82"))
+SPEAKER_PROFILE_PATH: Path = RUNTIME_DIR / "speaker_profile.npy"
+ENROLLMENT_PHRASES: int = 5

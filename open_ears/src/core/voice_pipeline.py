@@ -39,6 +39,16 @@ from src.utils.openclaw_notifier import OpenClawNotifier
 from src.core.terminal_visualizer import TerminalVisualizer
 from src.config import settings
 
+import logging
+import importlib.util
+logger = logging.getLogger(__name__)
+
+# Import error registry from project root (not open_ears/src/)
+_errors_path = Path(__file__).parent.parent.parent.parent / "src" / "errors.py"
+_spec = importlib.util.spec_from_file_location("molt_errors", str(_errors_path))
+_errors_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_errors_mod)
+lookup_error = _errors_mod.lookup_error
 
 
 class UltraFastVoicePipeline:
@@ -143,6 +153,12 @@ class UltraFastVoicePipeline:
         self.pragmatic = PragmaticAnalyzer()
         self.environment_memory = EnvironmentMemory()
 
+        # Crowd Control: speaker verification gate (opt-in via menu bar)
+        self.speaker_gate = None
+        self._crowd_control_enabled = False
+        self._cc_notifier = None
+        self._init_crowd_control()
+
         # Ensure lifespan data is saved on shutdown (atexit + SIGTERM)
         import atexit
         import signal as _signal
@@ -169,7 +185,7 @@ class UltraFastVoicePipeline:
                 import edge_tts
                 self.edge_tts = edge_tts
             except ImportError:
-                print("⚠️  edge-tts not installed. Install with: pip install edge-tts")
+                logger.error(lookup_error("EDGE_TTS_NOT_INSTALLED").log_message())
                 self.enable_tts = False
 
         # Display
@@ -252,6 +268,82 @@ class UltraFastVoicePipeline:
         except Exception:
             return 40  # Default fallback
 
+    def _init_crowd_control(self):
+        """Initialize Crowd Control speaker gate if enabled and enrolled."""
+        self._cc_last_check = 0  # timestamp of last config re-read
+        self._cc_check_interval = 5  # re-read config every 5 seconds
+        try:
+            from src.services.crowd_control_notifier import CrowdControlNotifier
+            cc_status_path = Path(settings.PROJECT_DIR) / "runtime" / "crowd_control_status.json"
+            self._cc_notifier = CrowdControlNotifier(cc_status_path)
+        except Exception as e:
+            logger.debug("CC notifier init failed: %s", e)
+        try:
+            self._load_speaker_gate()
+        except ImportError:
+            logger.debug("resemblyzer not installed — Crowd Control unavailable")
+        except Exception as e:
+            logger.warning("Crowd Control init failed: %s", e)
+
+    def _load_speaker_gate(self):
+        """Load or reload the speaker gate from disk."""
+        from src.services.speaker_gate import SpeakerGate
+        profile_path = settings.SPEAKER_PROFILE_PATH
+        if profile_path.exists():
+            self.speaker_gate = SpeakerGate(
+                profile_path=profile_path,
+                threshold=settings.SPEAKER_GATE_THRESHOLD,
+                sample_rate=self.sample_rate,
+            )
+            self._crowd_control_enabled = self._get_crowd_control_enabled()
+            if self._crowd_control_enabled:
+                print("🛡️  Crowd Control active (speaker verification enabled)")
+            else:
+                print("🛡️  Crowd Control ready (voice profile loaded, toggle ON in menu)")
+        else:
+            logger.debug("No speaker profile found — Crowd Control inactive")
+
+    def _get_crowd_control_enabled(self):
+        """Check if Crowd Control is enabled via ConfigManager."""
+        try:
+            import sys as _sys
+            config_manager_path = settings.PROJECT_DIR / "src" / "config"
+            if str(config_manager_path) not in _sys.path:
+                _sys.path.insert(0, str(config_manager_path))
+            from config_manager import ConfigManager
+            config = ConfigManager()
+            return getattr(config, 'crowd_control_enabled', False)
+        except Exception:
+            return settings.CROWD_CONTROL_ENABLED
+
+    def _refresh_crowd_control(self):
+        """Periodically re-read crowd control config and reload profile if changed."""
+        now = time.time()
+        if now - self._cc_last_check < self._cc_check_interval:
+            return
+        self._cc_last_check = now
+
+        new_enabled = self._get_crowd_control_enabled()
+        profile_path = settings.SPEAKER_PROFILE_PATH
+
+        # Detect new enrollment or profile deletion
+        if profile_path.exists() and self.speaker_gate is None:
+            try:
+                self._load_speaker_gate()
+                logger.info("Crowd Control: new voice profile detected")
+            except Exception as e:
+                logger.debug("Crowd Control reload failed: %s", e)
+        elif not profile_path.exists() and self.speaker_gate is not None:
+            self.speaker_gate = None
+            self._crowd_control_enabled = False
+            logger.info("Crowd Control: voice profile removed")
+            return
+
+        if new_enabled != self._crowd_control_enabled:
+            self._crowd_control_enabled = new_enabled
+            status = "ON" if new_enabled else "OFF"
+            print(f"🛡️  Crowd Control toggled {status}")
+
     def _shutdown_social_cues(self):
         """Save lifespan data on shutdown."""
         if hasattr(self, 'social_cues'):
@@ -315,7 +407,7 @@ end run
             print("✅ AppleScript pre-compiled for fast delivery")
             return compiled_path
         except Exception as e:
-            print(f"⚠️  AppleScript pre-compile failed: {e}")
+            logger.warning(lookup_error("APPLESCRIPT_COMPILE_FAILED").log_message(e))
             return None
 
     def _compile_applescript_cancel(self):
@@ -362,12 +454,12 @@ end tell
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"\n⚠️  Background I/O error: {e}")
+                logger.warning(lookup_error("BACKGROUND_IO_ERROR").log_message(e))
 
     def _audio_callback(self, indata, frames, time_info, status):
         """Capture and analyze audio"""
         if status:
-            print(f"\n⚠️  {status}", file=sys.stderr)
+            logger.debug(lookup_error("MIC_STREAM_WARNING").log_message(RuntimeError(str(status))))
 
         amplitude = np.sqrt(np.mean(indata**2)) * 10000
         self.current_amplitude = amplitude
@@ -402,10 +494,10 @@ end tell
             self._silero_vad = load_silero_vad(onnx=True)
             self._silero_torch = torch
             self._silero_available = True
-            print("✅ Silero VAD loaded (neural barge-in confirmation)")
+            logger.info("Silero VAD loaded (neural barge-in confirmation)")
             return True
         except Exception as e:
-            print(f"⚠️  Silero VAD not available ({e}), using amplitude-only")
+            logger.info(lookup_error("VAD_LOAD_FAILED").log_message(e))
             self._silero_vad = False  # Sentinel: don't retry
             return False
 
@@ -436,6 +528,9 @@ end tell
         """Capture audio with silence-based voice activity detection"""
         while self.running:
             time.sleep(self.check_interval)  # Check every 100ms for responsiveness
+
+            # Periodically re-read crowd control config (every ~5s, not every frame)
+            self._refresh_crowd_control()
 
             # Use higher threshold when agent is speaking to prevent TTS bleed.
             # BUT: once we're already recording (speech confirmed by consecutive
@@ -476,6 +571,38 @@ end tell
                 is_confirmed_speech = self._silero_confirm_speech(audio_data)
             else:
                 is_confirmed_speech = False
+
+            # Crowd Control: if enabled, verify this is the owner's voice.
+            # Runs only when speech is confirmed by Silero — no overhead otherwise.
+            cc_gate_state = "idle"
+            cc_decision = "pending"
+            cc_similarity = 0.0
+            cc_buffered_ms = 0
+            if (is_confirmed_speech and self._crowd_control_enabled
+                    and self.speaker_gate and self.speaker_gate.is_enrolled):
+                is_owner, cc_similarity = self.speaker_gate.verify(audio_data)
+                cc_buffered_ms = int(sum(len(c) for c in self.speaker_gate._verification_buffer) / 16) if self.speaker_gate._verification_buffer else 0
+                cc_gate_state = "decided" if self.speaker_gate._verification_decided else "accumulating"
+                cc_decision = "accepted" if is_owner else "rejected"
+                if not is_owner:
+                    is_confirmed_speech = False
+                    self._consecutive_speech_frames = 0
+                    if self.debug_mode:
+                        print(f"\n🛡️  Crowd Control: rejected (similarity: {cc_similarity:.2f})")
+
+            # Write CC debug status (for debug visualizer)
+            if self._crowd_control_enabled and self._cc_notifier:
+                self._cc_notifier.update(
+                    rms=float(max_amp),
+                    vad=is_confirmed_speech,
+                    gate_state=cc_gate_state,
+                    decision=cc_decision,
+                    similarity=cc_similarity,
+                    threshold=self.speaker_gate._threshold if self.speaker_gate else 0.82,
+                    buffered_ms=cc_buffered_ms,
+                    enrolled=self.speaker_gate.is_enrolled if self.speaker_gate else False,
+                    enabled=True,
+                )
 
             has_speech = (
                 (self._consecutive_speech_frames >= self._barge_speech_frames_required and is_confirmed_speech)
@@ -529,6 +656,9 @@ end tell
                         # Reset Silero RNN state between utterances
                         if self._silero_available:
                             self._silero_vad.reset_states()
+                        # Reset speaker gate verification state for next utterance
+                        if self.speaker_gate:
+                            self.speaker_gate.reset()
                 else:
                     # Not recording — maintain pre-roll buffer for word onset capture
                     self.pre_roll_buffer.append(audio_data)
@@ -726,7 +856,7 @@ end tell
                     print(f"\n⚡ Transcribed in {transcription_time:.2f}s (total latency: {total_latency:.2f}s)")
 
             except Exception as e:
-                print(f"\n⚠️  Transcription error: {e}", file=sys.stderr)
+                logger.warning(lookup_error("TRANSCRIPTION_FAILED").log_message(e))
 
     def _check_interrupted_speech(self):
         """Check if the agent was interrupted mid-speech. Returns dict with barge_point and remaining text."""
@@ -1054,7 +1184,7 @@ end tell
                     stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                 )
             except Exception as e:
-                print(f"\n⚠️  Failed to cancel agent generation: {e}")
+                logger.warning(lookup_error("AGENT_CANCEL_FAILED").log_message(e))
         else:
             # Fallback: inline AppleScript (blocking)
             window_pattern = settings.TARGET_WINDOW_PATTERN
@@ -1082,7 +1212,7 @@ end tell
                 _sp.run(['osascript', '-e', applescript],
                         capture_output=True, text=True, timeout=2)
             except Exception as e:
-                print(f"\n⚠️  Failed to cancel agent generation: {e}")
+                logger.warning(lookup_error("AGENT_CANCEL_FAILED").log_message(e))
 
         # Truncate speech output to prevent stale responses from bleeding through.
         # This also serves as the "all clear" signal for Mouth to resume synthesis.
@@ -1110,7 +1240,7 @@ end tell
         if self._last_osascript_proc is not None:
             retcode = self._last_osascript_proc.poll()
             if retcode is not None and retcode != 0:
-                print(f"\n⚠️  Previous AppleScript delivery failed (rc={retcode})")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(RuntimeError(f"exit code {retcode}")))
 
         # Fast path: pre-compiled script, non-blocking
         if self._compiled_send_script:
@@ -1119,10 +1249,10 @@ end tell
                     ['osascript', self._compiled_send_script, text],
                     stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                 )
-                print(f"\n✅ Sent to TUI: {text}")
+                logger.debug(f"Sent to TUI: {text}")
                 return
             except Exception as e:
-                print(f"\n⚠️  Compiled AppleScript failed: {e}")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(e))
 
         # Slow path: inline AppleScript (blocking fallback)
         escaped_text = (text
@@ -1158,14 +1288,14 @@ end tell
             result = _sp.run(['osascript', '-e', applescript],
                              capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
-                print(f"\n✅ Sent to TUI (inline): {text}")
+                logger.debug(f"Sent to TUI (inline): {text}")
                 return
             else:
-                print(f"\n⚠️  AppleScript failed: {result.stderr.strip()}")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(RuntimeError(result.stderr.strip())))
         except _sp.TimeoutExpired:
-            print(f"\n⚠️  AppleScript timed out")
+            logger.warning(lookup_error("TUI_DELIVERY_TIMEOUT").log_message())
         except Exception as e:
-            print(f"\n⚠️  AppleScript error: {e}")
+            logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(e))
 
         # Last resort: pyautogui (types into focused window)
         try:
@@ -1174,11 +1304,11 @@ end tell
             pyautogui.write(text, interval=0)
             time.sleep(0.05)
             pyautogui.press('enter')
-            print(f"\n✅ Typed into focused window (fallback): {text}")
+            logger.debug(f"Typed into focused window (fallback): {text}")
         except ImportError:
-            print("\n⚠️  Neither AppleScript nor pyautogui worked.")
+            logger.error(lookup_error("TUI_ALL_METHODS_FAILED").log_message())
         except Exception as e:
-            print(f"\n⚠️  Error typing to TUI: {e}")
+            logger.warning(lookup_error("TUI_TYPING_FAILED").log_message(e))
 
     def _generate_agent_response(self, transcription):
         """
@@ -1216,7 +1346,7 @@ end tell
                 await asyncio.sleep(len(text) * 0.1)  # Rough estimate
 
             except Exception as e:
-                print(f"\n⚠️  TTS error: {e}")
+                logger.warning(lookup_error("TTS_SYNTHESIS_FAILED").log_message(e))
             finally:
                 # Always clear speaking flag when done
                 self.is_speaking_tts = False
@@ -1238,13 +1368,20 @@ end tell
         self.running = True
 
         # ---- MIC FIRST: open audio stream before anything else ----
-        self._stream = sd.InputStream(
-            channels=1,
-            samplerate=self.sample_rate,
-            blocksize=int(self.sample_rate * 0.03),
-            callback=self._audio_callback
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                channels=1,
+                samplerate=self.sample_rate,
+                blocksize=int(self.sample_rate * 0.03),
+                callback=self._audio_callback
+            )
+            self._stream.start()
+        except (sd.PortAudioError, OSError) as e:
+            err = lookup_error("MIC_NOT_FOUND")
+            logger.error(err.log_message(e))
+            print(f"\n  {err.user_message}")
+            print(f"  {err.fix}\n")
+            raise SystemExit(1)
         print("🎙️  Microphone live — listening")
 
         # Start capture + display threads (only need mic + amplitude, no Whisper)

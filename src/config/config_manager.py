@@ -34,7 +34,8 @@ class ConfigManager:
         "barge_sensitivity": "medium",  # Options: "off", "low", "medium", "high"
         "barge_threshold": 50,  # Sensitivity 1-100 (higher = easier to barge in)
         "agent_boldness": 40,  # Disposition 1-100 (higher = bolder, default = somewhat timid)
-        "debug_mode": False  # Show inline temp/barge-in tags in agent messages
+        "debug_mode": False,  # Show inline temp/barge-in tags in agent messages
+        "crowd_control_enabled": False  # Speaker verification gate (opt-in)
     }
 
     # Mic sensitivity presets on 1-100 scale (higher = more sensitive)
@@ -320,3 +321,13 @@ class ConfigManager:
     def debug_mode(self, enabled: bool) -> None:
         """Set debug mode setting."""
         self.set("debug_mode", enabled)
+
+    @property
+    def crowd_control_enabled(self) -> bool:
+        """Get Crowd Control (speaker verification gate) setting."""
+        return self.get("crowd_control_enabled", self.DEFAULT_CONFIG["crowd_control_enabled"])
+
+    @crowd_control_enabled.setter
+    def crowd_control_enabled(self, enabled: bool) -> None:
+        """Set Crowd Control setting."""
+        self.set("crowd_control_enabled", enabled)

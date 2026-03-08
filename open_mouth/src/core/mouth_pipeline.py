@@ -34,6 +34,13 @@ config_manager_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config_manager_module)
 ConfigManager = config_manager_module.ConfigManager
 
+# Load error registry from project root (avoids src package conflict)
+_errors_path = PROJECT_ROOT / "src" / "errors.py"
+_errors_spec = importlib.util.spec_from_file_location("molt_errors", str(_errors_path))
+_errors_mod = importlib.util.module_from_spec(_errors_spec)
+_errors_spec.loader.exec_module(_errors_mod)
+lookup_error = _errors_mod.lookup_error
+
 logger = logging.getLogger(__name__)
 
 # --- Sentence splitter for TTS pipelining ---
@@ -162,7 +169,7 @@ class MouthPipeline:
                 voice_id = config.elevenlabs_voice_id
                 model = config.elevenlabs_model
                 if not api_key:
-                    logger.warning("ElevenLabs API key not configured. Falling back to Edge-TTS. Run 'molt-speak elapi' to configure.")
+                    logger.warning(lookup_error("ELEVENLABS_KEY_MISSING").log_message())
                     provider = "edge-tts"
                 else:
                     try:
@@ -175,7 +182,7 @@ class MouthPipeline:
                         )
                         logger.info(f"Using ELEVENLABS TTS (Voice ID: {voice_id}, Model: {model})")
                     except Exception as e:
-                        logger.warning(f"ElevenLabs TTS creation failed (expired key?): {e}. Falling back to Edge-TTS.")
+                        logger.warning(lookup_error("ELEVENLABS_INIT_FAILED").log_message(e))
                         provider = "edge-tts"
 
             if provider == "edge-tts":
@@ -369,7 +376,7 @@ class MouthPipeline:
         except Exception as e:
             # If ElevenLabs fails mid-session, fall back to Edge-TTS
             if not isinstance(self.tts_service, TTSService):
-                logger.warning(f"ElevenLabs synthesis failed: {e}. Falling back to Edge-TTS.")
+                logger.warning(lookup_error("ELEVENLABS_SYNTHESIS_FAILED").log_message(e))
                 self.tts_service = TTSFactory.create_tts_service(
                     provider="edge-tts",
                     voice=self.voice,
@@ -526,7 +533,7 @@ class MouthPipeline:
             return True
 
         except Exception as e:
-            logger.error(f"Sentence pipeline error: {e}")
+            logger.error(lookup_error("TTS_PIPELINE_ERROR").log_message(e))
             raise
 
         finally:
@@ -665,7 +672,7 @@ class MouthPipeline:
                                 "tts_provider": "local"
                             })
                     else:
-                        logger.error(f"Direct speech failed for: {text[:50]}...")
+                        logger.error(lookup_error("TTS_DIRECT_SPEECH_FAILED").log_message(RuntimeError(f"text: {text[:50]}...")))
 
                     # Immediately return to idle
                     self.state_manager.set_idle()
@@ -787,7 +794,7 @@ class MouthPipeline:
                             "tts_provider": "edge-tts"
                         })
                 else:
-                    logger.error(f"Failed to play audio for: {text[:50]}...")
+                    logger.error(lookup_error("TTS_PLAYBACK_FAILED").log_message(RuntimeError(f"text: {text[:50]}...")))
 
                 # Clean up temp file
                 try:
@@ -852,7 +859,7 @@ class MouthPipeline:
                 # If using ElevenLabs and voice test fails (e.g. expired API key),
                 # fall back to Edge-TTS instead of crashing the entire pipeline
                 if not self.use_local_tts and not isinstance(self.tts_service, TTSService):
-                    logger.warning("TTS voice test failed (ElevenLabs). Falling back to Edge-TTS.")
+                    logger.warning(lookup_error("TTS_VOICE_TEST_FAILED").log_message())
                     self.tts_service = TTSFactory.create_tts_service(
                         provider="edge-tts",
                         voice=self.voice,
@@ -889,7 +896,7 @@ class MouthPipeline:
                             break
 
                 if not voice_ok:
-                    logger.error("TTS voice test failed — all voices unavailable!")
+                    logger.error(lookup_error("TTS_ALL_VOICES_FAILED").log_message())
                     return
 
             logger.info("Voice test passed ✓")
@@ -1072,7 +1079,7 @@ class MouthPipeline:
                 loop.close()
 
             if not voice_ok:
-                logger.error(f"Voice test failed for: {new_voice}")
+                logger.error(lookup_error("TTS_VOICE_TEST_FAILED").log_message(RuntimeError(f"voice: {new_voice}")))
                 return False
 
             # Atomically swap TTS service
@@ -1092,5 +1099,5 @@ class MouthPipeline:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to change voice: {e}")
+            logger.error(lookup_error("TTS_VOICE_CHANGE_FAILED").log_message(e))
             return False

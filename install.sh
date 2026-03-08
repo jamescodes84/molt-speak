@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# NO set -e — we handle errors explicitly so failures are always visible
 
 # Colors for output
 RED='\033[0;31m'
@@ -7,6 +7,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+error_exit() {
+    echo "" >&2
+    echo -e "${RED}ERROR: $1${NC}" >&2
+    echo "" >&2
+    exit 1
+}
 
 # Installation directory
 INSTALL_DIR="$HOME/openclaw-workspace/molt-speak/app"
@@ -184,6 +191,9 @@ fi
 
 echo -e "${GREEN}✓${NC} Repository ready at $INSTALL_DIR"
 
+# Ensure scripts are executable (tar may strip permissions)
+chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
+
 # Set up Python virtual environment
 echo -e "${YELLOW}! Setting up unified Python virtual environment...${NC}"
 
@@ -205,22 +215,36 @@ MAIN_VENV="$INSTALL_DIR/venv"
 if [ ! -d "$MAIN_VENV" ]; then
     echo -e "${BLUE}  Creating virtual environment...${NC}"
     python3 -m venv "$MAIN_VENV"
+    if [ $? -ne 0 ]; then
+        error_exit "Failed to create virtual environment. Is python3 installed?"
+    fi
 fi
 
-source "$MAIN_VENV/bin/activate"
+source "$MAIN_VENV/bin/activate" || error_exit "Failed to activate virtual environment"
 echo -e "${BLUE}  Upgrading pip...${NC}"
 pip install --upgrade pip > /dev/null 2>&1
 
 # Install all dependencies from unified requirements.txt
 if [ -f "$INSTALL_DIR/requirements.txt" ]; then
     echo -e "${YELLOW}  Installing dependencies (PyTorch + Whisper - may take 2-5 min)...${NC}"
-    pip install -r "$INSTALL_DIR/requirements.txt" 2>&1 | while IFS= read -r line; do
+    # Write pip output to a temp file so we can capture BOTH the exit code AND show progress
+    PIP_LOG=$(mktemp)
+    pip install -r "$INSTALL_DIR/requirements.txt" 2>&1 | tee "$PIP_LOG" | while IFS= read -r line; do
         if [[ "$line" =~ "Collecting" ]] || [[ "$line" =~ "Downloading" ]] || [[ "$line" =~ "Installing" ]] || [[ "$line" =~ "Successfully" ]]; then
             echo "    $line"
         fi
     done
+    # Check if pip actually succeeded by verifying a critical import
+    if ! python3 -c "import sounddevice, edge_tts, rumps" 2>/dev/null; then
+        echo ""
+        echo -e "${RED}Some dependencies failed to install. Pip output:${NC}"
+        tail -20 "$PIP_LOG"
+        rm -f "$PIP_LOG"
+        error_exit "pip install failed. Check the output above and try again."
+    fi
+    rm -f "$PIP_LOG"
 else
-    echo -e "${YELLOW}Warning: No requirements.txt found${NC}"
+    error_exit "requirements.txt not found — installation is incomplete"
 fi
 
 deactivate
@@ -257,11 +281,14 @@ case "$1" in
 
         # Start menu bar app for voice control
         if [ -f "scripts/start_menu_bar.sh" ]; then
-            ./scripts/start_menu_bar.sh
-        else
+            bash scripts/start_menu_bar.sh
+        elif [ -f "venv/bin/activate" ]; then
             # Fallback: run directly
             source venv/bin/activate
             python3 unified_menu_bar.py
+        else
+            echo "Error: Cannot start — venv not found. Run: bash install.sh"
+            exit 1
         fi
         ;;
 
@@ -271,7 +298,7 @@ case "$1" in
 
         # Use the project's stop script if available
         if [ -f "scripts/stop_voice_loop.sh" ]; then
-            ./scripts/stop_voice_loop.sh
+            bash scripts/stop_voice_loop.sh
         else
             # Fallback: kill processes
             pkill -f "unified_audio"
@@ -288,7 +315,7 @@ case "$1" in
 
         # Stop voice loop first
         if [ -f "scripts/stop_voice_loop.sh" ]; then
-            ./scripts/stop_voice_loop.sh 2>/dev/null
+            bash scripts/stop_voice_loop.sh 2>/dev/null
         else
             pkill -f "unified_audio" 2>/dev/null
             pkill -f "main.py" 2>/dev/null
@@ -339,6 +366,13 @@ case "$1" in
         ;;
 
     update)
+        # Block update if installed from tar (no .git = no remote to pull from)
+        if [ ! -d "$INSTALL_DIR/.git" ]; then
+            echo "This install was done from a local package."
+            echo "To update, download the latest package and run install.sh again."
+            exit 0
+        fi
+
         echo "Updating OpenSpeak..."
 
         # Kill all orphaned processes first
@@ -415,12 +449,29 @@ case "$1" in
         # Check if script exists
         if [ ! -f "scripts/molt-speak-elapi.sh" ]; then
             echo "Error: ElevenLabs API key script not found"
-            echo "Please update to the latest version: moltspeak update"
+            echo "ElevenLabs script missing. Reinstall: rm -rf venv && bash install.sh"
             exit 1
         fi
 
         # Run the configuration script
-        ./scripts/molt-speak-elapi.sh
+        bash scripts/molt-speak-elapi.sh
+        ;;
+
+    diagnose)
+        echo ""
+        cd "$INSTALL_DIR"
+        if [ -d "venv" ]; then
+            source venv/bin/activate
+        fi
+        if [ -f "src/diagnostics/preflight.py" ]; then
+            if [ "$2" = "--network" ]; then
+                python3 -m src.diagnostics.preflight --network
+            else
+                python3 -m src.diagnostics.preflight
+            fi
+        else
+            echo "Diagnostics not available — reinstall: rm -rf venv && bash install.sh"
+        fi
         ;;
 
     kill)
@@ -449,14 +500,15 @@ case "$1" in
         echo "Usage: moltspeak [command]"
         echo ""
         echo "Commands:"
-        echo "  start    - Open menu bar control (select voice & start)"
-        echo "  stop     - Stop the voice loop (menu bar stays open)"
-        echo "  quit     - Quit everything (voice loop + menu bar)"
-        echo "  kill     - Nuclear kill all processes (use if stuck)"
-        echo "  status   - Check if voice loop is running"
-        echo "  logs     - View logs (audio|integration)"
-        echo "  update   - Update OpenSpeak to latest version"
-        echo "  elapi    - Set ElevenLabs API key"
+        echo "  start     - Open menu bar control (select voice & start)"
+        echo "  stop      - Stop the voice loop (menu bar stays open)"
+        echo "  quit      - Quit everything (voice loop + menu bar)"
+        echo "  kill      - Nuclear kill all processes (use if stuck)"
+        echo "  status    - Check if voice loop is running"
+        echo "  diagnose  - Run diagnostic checks"
+        echo "  logs      - View logs (audio|integration)"
+        echo "  update    - Update OpenSpeak to latest version"
+        echo "  elapi     - Set ElevenLabs API key"
         echo ""
         ;;
 esac

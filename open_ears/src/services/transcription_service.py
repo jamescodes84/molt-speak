@@ -65,7 +65,6 @@ class WhisperTranscriberOptimized:
 
         except Exception as e:
             logger.error(f"Error loading faster-whisper model: {e}")
-            print(f"Error loading faster-whisper model: {e}")
             raise
 
     def transcribe(self, audio_input, language=None, prompt=None):
@@ -170,7 +169,6 @@ class WhisperTranscriberOptimized:
 
         except Exception as e:
             logger.error(f"Transcription error: {e}")
-            print(f"Transcription error: {e}")
             return {
                 'text': '',
                 'error': str(e),
