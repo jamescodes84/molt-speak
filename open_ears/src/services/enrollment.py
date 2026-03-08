@@ -24,7 +24,7 @@ ENROLLMENT_PROMPTS = [
 # Recording parameters
 SAMPLE_RATE = 16000
 RECORD_DURATION = 4.0  # seconds per phrase
-MIN_AMPLITUDE = 50  # minimum RMS amplitude to accept a recording
+MIN_AMPLITUDE = 200  # minimum RMS amplitude to accept a recording
 
 
 class EnrollmentSession:

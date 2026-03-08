@@ -20,7 +20,9 @@ logger = logging.getLogger("open_ears.speaker_gate")
 MIN_VERIFICATION_AUDIO = 0.5
 
 # Default cosine similarity threshold for accepting speech as the owner
-DEFAULT_THRESHOLD = 0.65
+# Resemblyzer GE2E d-vectors need 0.82+ for reliable verification
+# (0.65 was too permissive — accepted non-owner voices)
+DEFAULT_THRESHOLD = 0.82
 
 
 class SpeakerGate:
@@ -169,8 +171,36 @@ class SpeakerGate:
                 audio_float = audio_float / max_val
 
             embedding = self._encoder.embed_utterance(audio_float)
+
+            # Validate embedding quality
+            emb_norm = float(np.linalg.norm(embedding))
+            if np.any(np.isnan(embedding)) or np.any(np.isinf(embedding)):
+                logger.warning("Phrase %d produced invalid embedding (NaN/Inf), skipping", i + 1)
+                continue
+            if emb_norm < 0.1:
+                logger.warning("Phrase %d produced near-zero embedding (norm=%.3f), skipping", i + 1, emb_norm)
+                continue
+
             embeddings.append(embedding)
-            logger.info("Enrolled phrase %d/%d", i + 1, len(audio_segments))
+            logger.info("Enrolled phrase %d/%d (embedding norm: %.3f)", i + 1, len(audio_segments), emb_norm)
+
+        if len(embeddings) < 3:
+            logger.error("Too few valid embeddings (%d/5). Enrollment failed.", len(embeddings))
+            return False
+
+        # Check embedding consistency — reject if any is a huge outlier
+        if len(embeddings) >= 3:
+            mean_emb = np.mean(embeddings, axis=0)
+            mean_emb_norm = np.linalg.norm(mean_emb)
+            if mean_emb_norm > 0:
+                mean_emb = mean_emb / mean_emb_norm
+            similarities = [float(np.dot(e / np.linalg.norm(e), mean_emb)) for e in embeddings]
+            min_sim = min(similarities)
+            logger.info("Enrollment embedding consistency: min=%.3f, all=%s",
+                        min_sim, [f"{s:.3f}" for s in similarities])
+            if min_sim < 0.5:
+                logger.warning("Enrollment has inconsistent embeddings (min similarity: %.3f). "
+                             "Some recordings may be corrupted.", min_sim)
 
         # Average all embeddings to create the voiceprint
         self._voiceprint = np.mean(embeddings, axis=0)

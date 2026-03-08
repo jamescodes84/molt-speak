@@ -106,6 +106,6 @@ DEBUG_MODE: bool = os.getenv("DEBUG_MODE", "false").lower() == "true"
 # ============================================================================
 # Off by default — user opts in via "Crowd Control" in the menu bar
 CROWD_CONTROL_ENABLED: bool = os.getenv("CROWD_CONTROL_ENABLED", "false").lower() == "true"
-SPEAKER_GATE_THRESHOLD: float = float(os.getenv("SPEAKER_GATE_THRESHOLD", "0.65"))
+SPEAKER_GATE_THRESHOLD: float = float(os.getenv("SPEAKER_GATE_THRESHOLD", "0.82"))
 SPEAKER_PROFILE_PATH: Path = RUNTIME_DIR / "speaker_profile.npy"
 ENROLLMENT_PHRASES: int = 5

@@ -1115,9 +1115,18 @@ class VoiceLoopMenuBar(rumps.App):
         if was_running:
             self.on_stop_all(None)
             import time as _time
-            _time.sleep(2)  # Wait for processes to fully stop
+            _time.sleep(4)  # Wait for CoreAudio to fully release the device
 
         try:
+            # Warm up the mic — flush any stale CoreAudio state
+            try:
+                import sounddevice as sd
+                warmup = sd.rec(int(0.5 * 16000), samplerate=16000, channels=1, dtype='float32')
+                sd.wait()
+                logger.info("Mic warmup complete")
+            except Exception as e:
+                logger.warning("Mic warmup failed: %s", e)
+
             SpeakerGate = self._load_speaker_gate_class()
             EnrollmentSession = self._load_enrollment_class()
 
@@ -1161,13 +1170,49 @@ class VoiceLoopMenuBar(rumps.App):
 
             # Finalize enrollment
             if session.finalize():
+                # Verification test — record a short phrase and check it matches
+                r = rumps.alert(
+                    "Verification Test",
+                    "Almost done! Say anything for 3 seconds to verify your voice profile.",
+                    ok="Verify", cancel="Skip"
+                )
+                if r == 1:  # Verify
+                    rumps.notification("Verifying...", "", "Speak now!", sound=True)
+                    self.title = "\U0001f3a4 TEST"
+                    import sounddevice as sd
+                    test_audio = sd.rec(int(3 * 16000), samplerate=16000, channels=1, dtype='float32')
+                    sd.wait()
+                    test_audio = test_audio.flatten()
+                    self.title = "\U0001f99e"
+
+                    # Run verification against the new voiceprint
+                    gate.reset()
+                    is_owner, similarity = gate.verify(test_audio)
+                    logger.info(f"Verification test: is_owner={is_owner}, similarity={similarity:.3f}")
+
+                    if is_owner:
+                        rumps.alert(
+                            "Voice Profile Saved!",
+                            f"Verification passed (confidence: {similarity:.0%}).\n\n"
+                            "Crowd Control is now active.\n"
+                            "Molt Speak will only respond to your voice."
+                        )
+                    else:
+                        rumps.alert(
+                            "Verification Warning",
+                            f"Your test phrase scored {similarity:.0%} (needs {gate.threshold:.0%}).\n\n"
+                            "The voice profile was saved, but you may want to\n"
+                            "re-enroll in a quieter environment for better accuracy."
+                        )
+                else:
+                    rumps.alert(
+                        "Voice Profile Saved!",
+                        "Crowd Control is now active.\n"
+                        "Molt Speak will only respond to your voice."
+                    )
+
                 self.config.crowd_control_enabled = True
                 self._pending_menu_rebuild = True
-                rumps.alert(
-                    "Voice Profile Saved!",
-                    "Crowd Control is now active.\n"
-                    "Molt Speak will only respond to your voice."
-                )
             else:
                 rumps.alert("Enrollment Failed",
                     "Could not create voice profile. Please try again.")
