@@ -1248,13 +1248,20 @@ end tell
         self.running = True
 
         # ---- MIC FIRST: open audio stream before anything else ----
-        self._stream = sd.InputStream(
-            channels=1,
-            samplerate=self.sample_rate,
-            blocksize=int(self.sample_rate * 0.03),
-            callback=self._audio_callback
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                channels=1,
+                samplerate=self.sample_rate,
+                blocksize=int(self.sample_rate * 0.03),
+                callback=self._audio_callback
+            )
+            self._stream.start()
+        except (sd.PortAudioError, OSError) as e:
+            err = lookup_error("MIC_NOT_FOUND")
+            logger.error(err.log_message(e))
+            print(f"\n  {err.user_message}")
+            print(f"  {err.fix}\n")
+            raise SystemExit(1)
         print("🎙️  Microphone live — listening")
 
         # Start capture + display threads (only need mic + amplitude, no Whisper)
