@@ -9,14 +9,25 @@ import sys
 import time
 from pathlib import Path
 
-# Add project root to path
+# Load modules via importlib to avoid open_ears/__init__.py import conflicts
 project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
 
+import importlib.util
 import numpy as np
 
-from open_ears.src.services.speaker_gate import SpeakerGate
-from open_ears.src.services.enrollment import EnrollmentSession, ENROLLMENT_PROMPTS, SAMPLE_RATE
+def _load_module(name, filepath):
+    spec = importlib.util.spec_from_file_location(name, str(filepath))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+_gate_mod = _load_module("speaker_gate", project_root / "open_ears" / "src" / "services" / "speaker_gate.py")
+_enroll_mod = _load_module("enrollment", project_root / "open_ears" / "src" / "services" / "enrollment.py")
+
+SpeakerGate = _gate_mod.SpeakerGate
+EnrollmentSession = _enroll_mod.EnrollmentSession
+ENROLLMENT_PROMPTS = _enroll_mod.ENROLLMENT_PROMPTS
+SAMPLE_RATE = _enroll_mod.SAMPLE_RATE
 
 # Voice profile is stored in the runtime directory
 RUNTIME_DIR = project_root / "runtime"

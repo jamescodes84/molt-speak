@@ -1079,14 +1079,32 @@ class VoiceLoopMenuBar(rumps.App):
             sound=False
         )
 
+    def _load_speaker_gate_class(self):
+        """Load SpeakerGate via importlib to avoid open_ears/__init__.py conflicts."""
+        import importlib.util
+        gate_path = self.project_dir / "open_ears" / "src" / "services" / "speaker_gate.py"
+        spec = importlib.util.spec_from_file_location("speaker_gate", str(gate_path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.SpeakerGate
+
+    def _load_enrollment_class(self):
+        """Load EnrollmentSession via importlib."""
+        import importlib.util
+        enroll_path = self.project_dir / "open_ears" / "src" / "services" / "enrollment.py"
+        spec = importlib.util.spec_from_file_location("enrollment", str(enroll_path))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.EnrollmentSession
+
     def on_enroll_voice(self, sender):
         """Launch voice enrollment in a background thread."""
         import threading
 
         def _do_enrollment():
             try:
-                from open_ears.src.services.speaker_gate import SpeakerGate
-                from open_ears.src.services.enrollment import EnrollmentSession
+                SpeakerGate = self._load_speaker_gate_class()
+                EnrollmentSession = self._load_enrollment_class()
 
                 profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
                 gate = SpeakerGate(profile_path=profile_path)
@@ -1138,14 +1156,22 @@ class VoiceLoopMenuBar(rumps.App):
                         "Enrollment incomplete. Please try again in a quieter room.",
                         sound=False
                     )
-            except ImportError:
-                rumps.alert(
-                    "Missing Dependency",
-                    "resemblyzer is not installed.\nRun: pip install resemblyzer"
+            except ImportError as e:
+                logger.error(f"Missing dependency for enrollment: {e}")
+                rumps.notification(
+                    "Crowd Control",
+                    "",
+                    "resemblyzer not installed. Run: pip install resemblyzer",
+                    sound=False
                 )
             except Exception as e:
                 logger.error(f"Enrollment failed: {e}")
-                rumps.alert("Enrollment Error", str(e))
+                rumps.notification(
+                    "Crowd Control",
+                    "",
+                    f"Enrollment failed: {e}",
+                    sound=False
+                )
 
         threading.Thread(target=_do_enrollment, daemon=True).start()
 
