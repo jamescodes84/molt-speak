@@ -9,6 +9,7 @@ Controls:
 """
 
 import logging
+import re
 import shlex
 import subprocess
 import os
@@ -125,6 +126,8 @@ class VoiceLoopMenuBar(rumps.App):
         self.initializing = True  # Flag to prevent crashes during startup
         self._current_voice = None  # Cache for current voice selection
         self._menu_is_open = False  # Tracks menu open/close for icon swap
+        self._recovery_needed = False  # True when background recovery polling is active
+        self._recovery_timer = None   # rumps.Timer for recovery polling
 
         # Configuration manager
         self.config = ConfigManager()
@@ -170,6 +173,7 @@ class VoiceLoopMenuBar(rumps.App):
         # Check for updates after startup (non-blocking)
         # HTTP check runs on background thread, UI shown via timer on main thread
         self._pending_update = None  # Store update info from background thread
+        self._pending_alert = None   # Store alert for main-thread display
         def check_updates():
             time.sleep(2.0)  # Wait for app to fully initialize
             self._fetch_update_info()
@@ -178,6 +182,10 @@ class VoiceLoopMenuBar(rumps.App):
         # Timer polls for update result and shows dialog on main thread
         self._update_ui_timer = rumps.Timer(self._show_pending_update, 1.0)
         self._update_ui_timer.start()
+
+        # Timer polls for queued alerts and shows them on main thread
+        self._alert_ui_timer = rumps.Timer(self._show_pending_alert, 0.5)
+        self._alert_ui_timer.start()
 
         logger.info("Menu bar app initialized with title: %s", self.title)
         logger.info("Unified Voice Loop Menu Bar initialized")
@@ -622,7 +630,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info(f"Edge-TTS voice selected: {voice_name}")
         except Exception as e:
             logger.error(f"Failed to save voice setting: {e}")
-            _truncated_alert("Error", f"Failed to save voice setting: {e}")
+            _truncated_alert("Setting Not Saved", f"Could not save your voice setting. Please try again.\n\nDetail: {type(e).__name__}: {e}")
             return
 
         if self.analytics:
@@ -642,7 +650,7 @@ class VoiceLoopMenuBar(rumps.App):
                     # Delay to ensure config is flushed to disk
                     time.sleep(0.3)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -674,7 +682,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info("Voice test message written")
         except Exception as e:
             logger.error(f"Failed to test voice: {e}")
-            _truncated_alert("Error", f"Failed to test voice: {e}")
+            _truncated_alert("Voice Test Failed", f"Could not test the selected voice. Please try again.\n\nDetail: {type(e).__name__}: {e}")
 
     def on_test_elevenlabs_voice(self, sender):
         """Test the current ElevenLabs voice."""
@@ -689,7 +697,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info("ElevenLabs voice test message written")
         except Exception as e:
             logger.error(f"Failed to test voice: {e}")
-            _truncated_alert("Error", f"Failed to test voice: {e}")
+            _truncated_alert("Voice Test Failed", f"Could not test the selected voice. Please try again.\n\nDetail: {type(e).__name__}: {e}")
 
     def get_elevenlabs_voices(self):
         """Fetch available ElevenLabs voices from API."""
@@ -720,7 +728,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info(f"ElevenLabs voice selected: {voice_name} ({voice_id})")
         except Exception as e:
             logger.error(f"Failed to save voice setting: {e}")
-            _truncated_alert("Error", f"Failed to save voice setting: {e}")
+            _truncated_alert("Setting Not Saved", f"Could not save your voice setting. Please try again.\n\nDetail: {type(e).__name__}: {e}")
             return
 
         if self.analytics:
@@ -740,7 +748,7 @@ class VoiceLoopMenuBar(rumps.App):
                     # Delay to ensure config is flushed to disk
                     time.sleep(0.3)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -774,7 +782,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info(f"Mic sensitivity set to: {level} (threshold: {threshold})")
         except Exception as e:
             logger.error(f"Failed to save mic sensitivity: {e}")
-            _truncated_alert("Error", f"Failed to save setting: {e}")
+            _truncated_alert("Setting Not Saved", f"Could not save your setting. Please try again.\n\nDetail: {type(e).__name__}: {e}")
             return
 
         if self.analytics:
@@ -793,7 +801,7 @@ class VoiceLoopMenuBar(rumps.App):
                 try:
                     time.sleep(0.2)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -835,7 +843,7 @@ class VoiceLoopMenuBar(rumps.App):
                                 try:
                                     time.sleep(0.2)
                                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                                    capture_output=True, timeout=15)
                                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                                    capture_output=True, timeout=15)
@@ -858,7 +866,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info(f"Barge-in sensitivity set to: {level} (multiplier: {multiplier}x)")
         except Exception as e:
             logger.error(f"Failed to save barge sensitivity: {e}")
-            _truncated_alert("Error", f"Failed to save setting: {e}")
+            _truncated_alert("Setting Not Saved", f"Could not save your setting. Please try again.\n\nDetail: {type(e).__name__}: {e}")
             return
 
         if self.analytics:
@@ -877,7 +885,7 @@ class VoiceLoopMenuBar(rumps.App):
                 try:
                     time.sleep(0.2)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -919,7 +927,7 @@ class VoiceLoopMenuBar(rumps.App):
                                 try:
                                     time.sleep(0.2)
                                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                                    capture_output=True, timeout=15)
                                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                                    capture_output=True, timeout=15)
@@ -941,7 +949,7 @@ class VoiceLoopMenuBar(rumps.App):
             logger.info(f"Agent boldness set to: {value} ({self.config.get_boldness_label()})")
         except Exception as e:
             logger.error(f"Failed to save agent boldness: {e}")
-            _truncated_alert("Error", f"Failed to save setting: {e}")
+            _truncated_alert("Setting Not Saved", f"Could not save your setting. Please try again.\n\nDetail: {type(e).__name__}: {e}")
             return
 
         if self.analytics:
@@ -1033,7 +1041,7 @@ class VoiceLoopMenuBar(rumps.App):
                 try:
                     time.sleep(0.2)
                     stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                    subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
                     subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                    capture_output=True, timeout=15)
@@ -1074,7 +1082,7 @@ class VoiceLoopMenuBar(rumps.App):
                 def restart_voice_loop():
                     try:
                         stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                        subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
                         subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
@@ -1100,7 +1108,7 @@ class VoiceLoopMenuBar(rumps.App):
                     try:
                         # Stop any lingering processes first
                         stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                        subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
                         subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
@@ -1123,7 +1131,7 @@ class VoiceLoopMenuBar(rumps.App):
 
         except Exception as e:
             logger.error(f"Error selecting provider: {e}")
-            _truncated_alert("Error", f"Failed to change provider: {e}")
+            _truncated_alert("Provider Change Failed", f"Could not switch TTS provider. Please try again.\n\nDetail: {type(e).__name__}: {e}")
 
     def on_configure_elevenlabs(self, sender):
         """Launch ElevenLabs configuration wizard."""
@@ -1154,7 +1162,7 @@ class VoiceLoopMenuBar(rumps.App):
 
         except Exception as e:
             logger.error(f"Error launching ElevenLabs configuration: {e}")
-            _truncated_alert("Error", f"Failed to launch configuration: {e}")
+            _truncated_alert("Configuration Failed", f"Could not open the configuration tool.\n\nDetail: {type(e).__name__}: {e}")
 
     def check_process(self, pid_file: Path) -> bool:
         """Check if a process is running by PID file."""
@@ -1184,14 +1192,25 @@ class VoiceLoopMenuBar(rumps.App):
 
             # Update title based on status
             all_running = self.integration_running and self.mouth_running and self.ears_running
+            some_running = self.integration_running or self.mouth_running or self.ears_running
 
             if all_running:
+                # Everything healthy — clear recovery state
+                if getattr(self, '_recovery_needed', False):
+                    self._recovery_needed = False
+                    logger.info("All systems recovered — clearing recovery state")
                 if self._is_user_speaking():
                     self._set_title(f"🔵{self._mascot}")
                 else:
                     self._set_title(f"🟢{self._mascot}")
+            elif some_running:
+                # Degraded mode — some components still alive
+                self._set_title(f"🟡{self._mascot}")
             else:
                 self._set_title(f"🔴{self._mascot}")
+
+            # Check for crash report from unified_audio supervisor
+            self._check_crash_report()
 
             # Rebuild menu if anything changed
             if (integration_was_running != self.integration_running or
@@ -1201,10 +1220,178 @@ class VoiceLoopMenuBar(rumps.App):
         except Exception as e:
             logger.warning(f"Error updating status: {e}")
 
+    def _check_crash_report(self):
+        """Check for runtime/last_crash.json and handle based on action type."""
+        crash_file = self.runtime_dir / "last_crash.json"
+        if not crash_file.exists():
+            return
+        try:
+            import json
+            data = json.loads(crash_file.read_text())
+            crash_file.unlink(missing_ok=True)
+
+            component = data.get("component", "Unknown")
+            action = data.get("action", "needs_user_action")
+            retry_count = data.get("retry_count", 0)
+
+            # Use error registry for user-friendly messages (fall back to raw fields)
+            error_code = data.get("error_code")
+            try:
+                from src.errors import lookup_error
+                err = lookup_error(error_code) if error_code else None
+                message = err.user_message if err else data.get("message", "Crashed unexpectedly")
+                fix = err.fix if err else data.get("fix", "")
+                alert_title = err.alert_title if err else component
+            except ImportError:
+                message = data.get("message", "Crashed unexpectedly")
+                fix = data.get("fix", "")
+                alert_title = component
+
+            if action == "auto_restarted":
+                # Silent recovery — supervisor handled it.
+                # Only alert if this is the 3rd+ auto-restart (repeated issue).
+                if retry_count >= 3:
+                    _truncated_alert(
+                        f"{alert_title} — Unstable",
+                        f"{component} has crashed {retry_count} times and keeps restarting.\n\n"
+                        f"{message}\n"
+                        f"{fix}",
+                    )
+                else:
+                    logger.info(
+                        f"{component} auto-restarted (attempt {retry_count}) — no alert"
+                    )
+                return
+
+            if action == "retries_exhausted":
+                # Supervisor gave up — offer to try again
+                response = rumps.alert(
+                    f"{alert_title} — Keeps Crashing",
+                    f"{component} crashed {retry_count} times.\n\n"
+                    f"{message}\n"
+                    f"{fix}",
+                    ok="Try Again",
+                    cancel="OK",
+                )
+                if response == 1:  # "Try Again" clicked
+                    self._attempt_recovery()
+                else:
+                    self._start_recovery_polling()
+                return
+
+            # action == "needs_user_action" (non-restartable failure)
+            response = rumps.alert(
+                f"{alert_title} — Stopped",
+                f"{message}\n\n"
+                f"{fix}",
+                ok="Try Again",
+                cancel="OK",
+            )
+            if response == 1:  # "Try Again" clicked
+                self._attempt_recovery()
+            else:
+                # User dismissed — start background polling for when they fix it
+                self._start_recovery_polling()
+
+        except Exception as e:
+            logger.warning(f"Could not read crash report: {e}")
+            try:
+                crash_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    def _attempt_recovery(self):
+        """Run preflight (if available), then restart the voice loop."""
+        import threading
+        def _do_recovery():
+            try:
+                from src.diagnostics.preflight import PreflightChecker
+                checker = PreflightChecker(project_root=self.project_dir)
+                results = checker.run_critical_only()
+                if not checker.has_critical_failure(results):
+                    logger.info("Preflight passed — restarting voice loop")
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    time.sleep(0.5)
+                    self.on_start_all(None)
+                else:
+                    msg = PreflightChecker.format_results(results)
+                    logger.warning(f"Recovery preflight failed:\n{msg}")
+                    self._start_recovery_polling()
+            except ImportError:
+                # Preflight module not available — attempt direct restart
+                logger.info("Preflight not available — attempting direct restart")
+                try:
+                    stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                    subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
+                                   capture_output=True, timeout=15)
+                    time.sleep(0.5)
+                    self.on_start_all(None)
+                except Exception as e2:
+                    logger.error(f"Direct restart failed: {e2}")
+                    self._start_recovery_polling()
+            except Exception as e:
+                logger.error(f"Recovery attempt failed: {e}")
+                self._start_recovery_polling()
+        threading.Thread(target=_do_recovery, daemon=True).start()
+
+    def _start_recovery_polling(self):
+        """Start background polling for when the issue is fixed (e.g. mic plugged in)."""
+        if getattr(self, '_recovery_needed', False):
+            return  # Already polling
+        self._recovery_needed = True
+        if not hasattr(self, '_recovery_timer') or self._recovery_timer is None:
+            self._recovery_timer = rumps.Timer(self._recovery_poll, 10)
+            self._recovery_timer.start()
+            logger.info("Started recovery polling (every 10s)")
+
+    def _recovery_poll(self, sender):
+        """Background poll: check if crashed component's issue is fixed."""
+        if not getattr(self, '_recovery_needed', False):
+            # Recovery no longer needed — stop polling
+            if hasattr(self, '_recovery_timer') and self._recovery_timer:
+                self._recovery_timer.stop()
+                self._recovery_timer = None
+            return
+        try:
+            from src.diagnostics.preflight import PreflightChecker
+            checker = PreflightChecker(project_root=self.project_dir)
+            results = checker.run_critical_only()
+            if not checker.has_critical_failure(results):
+                # Issue fixed! Auto-restart.
+                logger.info("Recovery poll: preflight passed — auto-restarting")
+                self._recovery_needed = False
+                if hasattr(self, '_recovery_timer') and self._recovery_timer:
+                    self._recovery_timer.stop()
+                    self._recovery_timer = None
+                stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
+                               capture_output=True, timeout=15)
+                time.sleep(0.5)
+                self.on_start_all(None)
+        except ImportError:
+            # Preflight not available — attempt direct restart
+            logger.info("Recovery poll: preflight not available — attempting direct restart")
+            self._recovery_needed = False
+            if hasattr(self, '_recovery_timer') and self._recovery_timer:
+                self._recovery_timer.stop()
+                self._recovery_timer = None
+            try:
+                stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
+                subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
+                               capture_output=True, timeout=15)
+                time.sleep(0.5)
+                self.on_start_all(None)
+            except Exception as e2:
+                logger.error(f"Direct restart failed: {e2}")
+        except Exception as e:
+            logger.debug(f"Recovery poll check failed: {e}")
+
     def _start_script_cmd(self) -> list:
         """Build the start_voice_loop.sh command, including --debug if enabled."""
         script_path = self.project_dir / "scripts" / "start_voice_loop.sh"
-        cmd = [str(script_path)]
+        cmd = ["bash", str(script_path)]
         if self.config.debug_mode:
             cmd.append('--debug')
         return cmd
@@ -1229,12 +1416,13 @@ class VoiceLoopMenuBar(rumps.App):
         try:
             logger.info("Starting voice loop...")
 
-            # Run start script
+            # Run start script (timeout covers preflight checks + venv setup)
             result = subprocess.run(
                 self._start_script_cmd(),
                 cwd=str(self.project_dir),
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=120
             )
 
             if result.returncode == 0:
@@ -1261,18 +1449,32 @@ class VoiceLoopMenuBar(rumps.App):
                 threading.Thread(target=delayed_injection, daemon=True).start()
 
             else:
-                logger.error(f"Failed to start voice loop: {result.stderr}")
-                # Only show alert if called from main thread (not auto-start)
-                if sender is not None:
-                    _truncated_alert(
-                        "Start Failed",
-                        f"Failed to start voice loop:\n\n{result.stderr}"
-                    )
+                # Extract a clean error message from script output
+                raw = (result.stdout + "\n" + result.stderr).strip()
+                logger.error(f"Failed to start voice loop:\n{raw}")
+                # Strip ANSI codes and extract only the useful error lines
+                clean = re.sub(r'\x1b\[[0-9;]*m', '', raw)
+                # Pull out just the error — skip banners and progress
+                error_lines = []
+                for line in clean.splitlines():
+                    line = line.strip()
+                    # Keep failure/error/blocked lines and their fixes
+                    if any(kw in line.upper() for kw in ['FAIL', 'ERROR', 'BLOCKED', 'FIX:', 'CANNOT START']):
+                        error_lines.append(line)
+                if error_lines:
+                    msg = "\n".join(error_lines)
+                else:
+                    msg = clean[-300:] if len(clean) > 300 else clean
+                self._pending_alert = (
+                    "Voice Loop Failed",
+                    msg or "Unknown error — check logs/audio.log"
+                )
+        except subprocess.TimeoutExpired:
+            logger.error("Voice loop start script timed out")
+            self._pending_alert = ("Voice Loop Failed", "Startup timed out. Try: moltspeak stop && moltspeak start")
         except Exception as e:
             logger.error(f"Error starting voice loop: {e}")
-            # Only show alert if called from main thread (not auto-start)
-            if sender is not None:
-                _truncated_alert("Error", f"Failed to start: {e}")
+            self._pending_alert = ("Error", f"Failed to start: {e}")
 
     def on_stop_all(self, sender):
         """Stop the complete voice loop."""
@@ -1287,10 +1489,11 @@ class VoiceLoopMenuBar(rumps.App):
             # Run stop script
             script_path = self.project_dir / "scripts" / "stop_voice_loop.sh"
             result = subprocess.run(
-                [str(script_path)],
+                ["bash", str(script_path)],
                 cwd=str(self.project_dir),
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=30
             )
 
             if result.returncode == 0:
@@ -1325,7 +1528,7 @@ class VoiceLoopMenuBar(rumps.App):
                 )
         except Exception as e:
             logger.error(f"Error stopping voice loop: {e}")
-            _truncated_alert("Error", f"Failed to stop: {e}")
+            _truncated_alert("Stop Failed", f"Could not stop the voice loop cleanly. Try: moltspeak kill\n\nDetail: {type(e).__name__}: {e}")
 
     def on_start_integration(self, sender):
         """Start Integration Coordinator."""
@@ -1387,7 +1590,7 @@ class VoiceLoopMenuBar(rumps.App):
             self.update_status(None)
         except Exception as e:
             logger.error(f"Error starting {name}: {e}")
-            _truncated_alert("Error", f"Failed to start {display_name}: {e}")
+            _truncated_alert(f"{display_name} Start Failed", f"Could not start {display_name}. Check logs: moltspeak logs audio\n\nDetail: {type(e).__name__}: {e}")
 
     def on_stop_integration(self, sender):
         """Stop Integration Coordinator."""
@@ -1413,7 +1616,7 @@ class VoiceLoopMenuBar(rumps.App):
                 rumps.alert("Not Running", f"{display_name} is not currently running")
         except Exception as e:
             logger.error(f"Error stopping {display_name}: {e}")
-            _truncated_alert("Error", f"Failed to stop {display_name}: {e}")
+            _truncated_alert(f"{display_name} Stop Failed", f"Could not stop {display_name}. Try: moltspeak kill\n\nDetail: {type(e).__name__}: {e}")
 
     def on_view_integration_log(self, sender):
         """View integration log."""
@@ -1501,7 +1704,7 @@ end tell'''
             subprocess.run(["osascript", "-e", script], check=True)
         except Exception as e:
             logger.error(f"Error opening log: {e}")
-            _truncated_alert("Error", f"Failed to open log: {e}")
+            _truncated_alert("Log Viewer Failed", f"Could not open the log file.\n\nDetail: {type(e).__name__}: {e}")
 
     def inject_agent_instructions(self):
         """Write instructions to file and tell agent to read it."""
@@ -1875,7 +2078,7 @@ end tell
                 self.inject_honorific_change_message(new_honorific)
         except Exception as e:
             logger.error(f"Error changing honorific: {e}")
-            _truncated_alert("Error", f"Failed to change honorific: {e}")
+            _truncated_alert("Honorific Not Saved", f"Could not save your honorific preference. Please try again.\n\nDetail: {type(e).__name__}: {e}")
 
     def on_change_voice(self, voice_name):
         """Change the TTS voice (called programmatically, not from toggle)."""
@@ -1905,7 +2108,7 @@ end tell
                 def restart_voice_loop():
                     try:
                         stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
-                        subprocess.run([str(stop_script)], cwd=str(self.project_dir),
+                        subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
                         subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
@@ -1926,7 +2129,7 @@ end tell
 
         except Exception as e:
             logger.error(f"Error changing voice: {e}")
-            _truncated_alert("Error", f"Failed to change voice: {e}")
+            _truncated_alert("Voice Change Failed", f"Could not switch to the selected voice. The previous voice is still active.\n\nDetail: {type(e).__name__}: {e}")
 
     def on_test_voice(self, sender):
         """Test the current voice."""
@@ -1965,7 +2168,7 @@ end tell
                 f"Found {len(voices)} voices.\n\nVoice names copied to clipboard.\n\nTo download more voices:\nSystem Settings → Accessibility → Spoken Content → System Voice → Manage Voices"
             )
         except Exception as e:
-            _truncated_alert("Error", f"Failed to list voices: {e}")
+            _truncated_alert("Voice List Failed", f"Could not load available voices. Check your internet connection.\n\nDetail: {type(e).__name__}: {e}")
 
     def on_view_instructions(self, sender):
         """View agent instructions and copy to clipboard."""
@@ -2252,6 +2455,17 @@ View full docs in AGENT_INSTRUCTIONS.txt"""
         except Exception as e:
             logger.error(f"Error showing update dialog: {e}")
 
+    def _show_pending_alert(self, timer):
+        """Show queued alert on main thread (called by rumps.Timer)."""
+        if self._pending_alert is None:
+            return
+        title, message = self._pending_alert
+        self._pending_alert = None
+        try:
+            _truncated_alert(title, message)
+        except Exception as e:
+            logger.error(f"Error showing alert: {e}")
+
     def on_check_for_updates(self, sender):
         """Manual update check from menu."""
         try:
@@ -2410,7 +2624,7 @@ def force_cleanup():
     # Also try the stop script as backup (but it won't kill Claude Code anymore)
     stop_script = project_dir / "scripts" / "stop_voice_loop.sh"
     if stop_script.exists():
-        subprocess.run([str(stop_script)], capture_output=True, cwd=str(project_dir))
+        subprocess.run(["bash", str(stop_script)], capture_output=True, cwd=str(project_dir))
 
     # Force kill by pattern as final backup
     subprocess.run(["pkill", "-9", "-f", "unified_audio"], capture_output=True)

@@ -39,6 +39,16 @@ from src.utils.openclaw_notifier import OpenClawNotifier
 from src.core.terminal_visualizer import TerminalVisualizer
 from src.config import settings
 
+import logging
+import importlib.util
+logger = logging.getLogger(__name__)
+
+# Import error registry from project root (not open_ears/src/)
+_errors_path = Path(__file__).parent.parent.parent.parent / "src" / "errors.py"
+_spec = importlib.util.spec_from_file_location("molt_errors", str(_errors_path))
+_errors_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_errors_mod)
+lookup_error = _errors_mod.lookup_error
 
 
 class UltraFastVoicePipeline:
@@ -169,7 +179,7 @@ class UltraFastVoicePipeline:
                 import edge_tts
                 self.edge_tts = edge_tts
             except ImportError:
-                print("⚠️  edge-tts not installed. Install with: pip install edge-tts")
+                logger.error(lookup_error("EDGE_TTS_NOT_INSTALLED").log_message())
                 self.enable_tts = False
 
         # Display
@@ -315,7 +325,7 @@ end run
             print("✅ AppleScript pre-compiled for fast delivery")
             return compiled_path
         except Exception as e:
-            print(f"⚠️  AppleScript pre-compile failed: {e}")
+            logger.warning(lookup_error("APPLESCRIPT_COMPILE_FAILED").log_message(e))
             return None
 
     def _compile_applescript_cancel(self):
@@ -362,12 +372,12 @@ end tell
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"\n⚠️  Background I/O error: {e}")
+                logger.warning(lookup_error("BACKGROUND_IO_ERROR").log_message(e))
 
     def _audio_callback(self, indata, frames, time_info, status):
         """Capture and analyze audio"""
         if status:
-            print(f"\n⚠️  {status}", file=sys.stderr)
+            logger.debug(lookup_error("MIC_STREAM_WARNING").log_message(RuntimeError(str(status))))
 
         amplitude = np.sqrt(np.mean(indata**2)) * 10000
         self.current_amplitude = amplitude
@@ -402,10 +412,10 @@ end tell
             self._silero_vad = load_silero_vad(onnx=True)
             self._silero_torch = torch
             self._silero_available = True
-            print("✅ Silero VAD loaded (neural barge-in confirmation)")
+            logger.info("Silero VAD loaded (neural barge-in confirmation)")
             return True
         except Exception as e:
-            print(f"⚠️  Silero VAD not available ({e}), using amplitude-only")
+            logger.info(lookup_error("VAD_LOAD_FAILED").log_message(e))
             self._silero_vad = False  # Sentinel: don't retry
             return False
 
@@ -726,7 +736,7 @@ end tell
                     print(f"\n⚡ Transcribed in {transcription_time:.2f}s (total latency: {total_latency:.2f}s)")
 
             except Exception as e:
-                print(f"\n⚠️  Transcription error: {e}", file=sys.stderr)
+                logger.warning(lookup_error("TRANSCRIPTION_FAILED").log_message(e))
 
     def _check_interrupted_speech(self):
         """Check if the agent was interrupted mid-speech. Returns dict with barge_point and remaining text."""
@@ -1054,7 +1064,7 @@ end tell
                     stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                 )
             except Exception as e:
-                print(f"\n⚠️  Failed to cancel agent generation: {e}")
+                logger.warning(lookup_error("AGENT_CANCEL_FAILED").log_message(e))
         else:
             # Fallback: inline AppleScript (blocking)
             window_pattern = settings.TARGET_WINDOW_PATTERN
@@ -1082,7 +1092,7 @@ end tell
                 _sp.run(['osascript', '-e', applescript],
                         capture_output=True, text=True, timeout=2)
             except Exception as e:
-                print(f"\n⚠️  Failed to cancel agent generation: {e}")
+                logger.warning(lookup_error("AGENT_CANCEL_FAILED").log_message(e))
 
         # Truncate speech output to prevent stale responses from bleeding through.
         # This also serves as the "all clear" signal for Mouth to resume synthesis.
@@ -1110,7 +1120,7 @@ end tell
         if self._last_osascript_proc is not None:
             retcode = self._last_osascript_proc.poll()
             if retcode is not None and retcode != 0:
-                print(f"\n⚠️  Previous AppleScript delivery failed (rc={retcode})")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(RuntimeError(f"exit code {retcode}")))
 
         # Fast path: pre-compiled script, non-blocking
         if self._compiled_send_script:
@@ -1119,10 +1129,10 @@ end tell
                     ['osascript', self._compiled_send_script, text],
                     stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                 )
-                print(f"\n✅ Sent to TUI: {text}")
+                logger.debug(f"Sent to TUI: {text}")
                 return
             except Exception as e:
-                print(f"\n⚠️  Compiled AppleScript failed: {e}")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(e))
 
         # Slow path: inline AppleScript (blocking fallback)
         escaped_text = (text
@@ -1158,14 +1168,14 @@ end tell
             result = _sp.run(['osascript', '-e', applescript],
                              capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
-                print(f"\n✅ Sent to TUI (inline): {text}")
+                logger.debug(f"Sent to TUI (inline): {text}")
                 return
             else:
-                print(f"\n⚠️  AppleScript failed: {result.stderr.strip()}")
+                logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(RuntimeError(result.stderr.strip())))
         except _sp.TimeoutExpired:
-            print(f"\n⚠️  AppleScript timed out")
+            logger.warning(lookup_error("TUI_DELIVERY_TIMEOUT").log_message())
         except Exception as e:
-            print(f"\n⚠️  AppleScript error: {e}")
+            logger.warning(lookup_error("TUI_DELIVERY_FAILED").log_message(e))
 
         # Last resort: pyautogui (types into focused window)
         try:
@@ -1174,11 +1184,11 @@ end tell
             pyautogui.write(text, interval=0)
             time.sleep(0.05)
             pyautogui.press('enter')
-            print(f"\n✅ Typed into focused window (fallback): {text}")
+            logger.debug(f"Typed into focused window (fallback): {text}")
         except ImportError:
-            print("\n⚠️  Neither AppleScript nor pyautogui worked.")
+            logger.error(lookup_error("TUI_ALL_METHODS_FAILED").log_message())
         except Exception as e:
-            print(f"\n⚠️  Error typing to TUI: {e}")
+            logger.warning(lookup_error("TUI_TYPING_FAILED").log_message(e))
 
     def _generate_agent_response(self, transcription):
         """
@@ -1216,7 +1226,7 @@ end tell
                 await asyncio.sleep(len(text) * 0.1)  # Rough estimate
 
             except Exception as e:
-                print(f"\n⚠️  TTS error: {e}")
+                logger.warning(lookup_error("TTS_SYNTHESIS_FAILED").log_message(e))
             finally:
                 # Always clear speaking flag when done
                 self.is_speaking_tts = False
