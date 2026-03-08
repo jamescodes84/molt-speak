@@ -9,6 +9,7 @@ This is an opt-in feature — only active when the user enables
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from pathlib import Path
 
@@ -42,6 +43,7 @@ class SpeakerGate:
         # Verification buffer — accumulates frames until we have enough audio
         self._verification_buffer: list[np.ndarray] = []
         self._verification_decided = False
+        self._verification_pending = False  # True while embed_utterance runs
         self._last_result = (True, 1.0)
 
         # Load voiceprint from disk if it exists (cheap — just a numpy load)
@@ -88,8 +90,11 @@ class SpeakerGate:
         """Check if audio belongs to the enrolled owner.
 
         Accumulates audio frames internally until enough data is available
-        for a reliable embedding (~500ms). Returns (True, 1.0) while still
-        accumulating (benefit of the doubt).
+        for a reliable embedding (~500ms). Runs the neural network in a
+        background thread to avoid blocking the capture loop.
+
+        Returns (True, 1.0) while accumulating or computing (benefit of
+        the doubt). Once the result is ready, returns the cached decision.
 
         Args:
             audio_data: Raw audio as numpy array (16kHz, mono).
@@ -104,50 +109,60 @@ class SpeakerGate:
         if self._verification_decided:
             return self._last_result
 
-        # Accumulate audio
-        self._verification_buffer.append(audio_data)
-        total_audio = np.concatenate(self._verification_buffer)
-        duration = len(total_audio) / self._sample_rate
-
-        if duration < MIN_VERIFICATION_AUDIO:
-            # Not enough audio yet — let it through
+        # If embedding is currently computing, let audio through
+        if self._verification_pending:
             return True, 1.0
 
-        # We have enough audio — make the decision
+        # Accumulate audio
+        self._verification_buffer.append(audio_data)
+        total_samples = sum(len(chunk) for chunk in self._verification_buffer)
+        duration = total_samples / self._sample_rate
+
+        if duration < MIN_VERIFICATION_AUDIO:
+            return True, 1.0
+
+        # We have enough audio — run embedding in background thread
         if not self._load_encoder():
-            return True, 1.0  # Encoder failed — don't block speech
+            return True, 1.0
 
-        try:
-            audio_float = total_audio.astype(np.float32)
-            # Normalize to [-1, 1] if needed
-            max_val = np.max(np.abs(audio_float))
-            if max_val > 1.0:
-                audio_float = audio_float / max_val
+        self._verification_pending = True
+        total_audio = np.concatenate(self._verification_buffer)
 
-            embedding = self._encoder.embed_utterance(audio_float)
-            similarity = float(np.dot(embedding, self._voiceprint) / (
-                np.linalg.norm(embedding) * np.linalg.norm(self._voiceprint)
-            ))
+        def _compute():
+            try:
+                audio_float = total_audio.astype(np.float32)
+                max_val = np.max(np.abs(audio_float))
+                if max_val > 1.0:
+                    audio_float = audio_float / max_val
 
-            is_owner = similarity >= self._threshold
-            self._last_result = (is_owner, similarity)
-            self._verification_decided = True
+                embedding = self._encoder.embed_utterance(audio_float)
+                similarity = float(np.dot(embedding, self._voiceprint) / (
+                    np.linalg.norm(embedding) * np.linalg.norm(self._voiceprint)
+                ))
 
-            if is_owner:
-                logger.debug("Speaker verified (similarity: %.2f)", similarity)
-            else:
-                logger.debug("Speaker rejected (similarity: %.2f)", similarity)
+                is_owner = similarity >= self._threshold
+                self._last_result = (is_owner, similarity)
+                self._verification_decided = True
 
-            return is_owner, similarity
+                if is_owner:
+                    logger.debug("Speaker verified (similarity: %.2f)", similarity)
+                else:
+                    logger.debug("Speaker rejected (similarity: %.2f)", similarity)
+            except Exception as e:
+                logger.warning("Speaker verification error: %s", e)
+                self._last_result = (True, 1.0)
+                self._verification_decided = True
+            finally:
+                self._verification_pending = False
 
-        except Exception as e:
-            logger.warning("Speaker verification error: %s", e)
-            return True, 1.0  # Don't block on errors
+        threading.Thread(target=_compute, daemon=True).start()
+        return True, 1.0  # Let audio through while computing
 
     def reset(self):
         """Reset verification state for a new utterance."""
         self._verification_buffer = []
         self._verification_decided = False
+        self._verification_pending = False
         self._last_result = (True, 1.0)
 
     def enroll(self, audio_segments: list[np.ndarray]) -> bool:

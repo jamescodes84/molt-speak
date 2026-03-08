@@ -581,8 +581,7 @@ end tell
             if (is_confirmed_speech and self._crowd_control_enabled
                     and self.speaker_gate and self.speaker_gate.is_enrolled):
                 is_owner, cc_similarity = self.speaker_gate.verify(audio_data)
-                cc_buffered_ms = int(len(np.concatenate(
-                    self.speaker_gate._verification_buffer)) / 16) if self.speaker_gate._verification_buffer else 0
+                cc_buffered_ms = int(sum(len(c) for c in self.speaker_gate._verification_buffer) / 16) if self.speaker_gate._verification_buffer else 0
                 cc_gate_state = "decided" if self.speaker_gate._verification_decided else "accumulating"
                 cc_decision = "accepted" if is_owner else "rejected"
                 if not is_owner:

@@ -14,6 +14,9 @@ from pathlib import Path
 
 logger = logging.getLogger("open_ears.cc_notifier")
 
+# Hold a decision visible for this many seconds so the viz can display it
+DECISION_HOLD_SECONDS = 2.0
+
 
 class CrowdControlNotifier:
     """Writes crowd control status to a JSON file for external consumers."""
@@ -21,13 +24,41 @@ class CrowdControlNotifier:
     def __init__(self, status_file: Path):
         self._status_file = status_file
         self._status_file.parent.mkdir(parents=True, exist_ok=True)
+        self._held_gate_state = "idle"
+        self._held_decision = "pending"
+        self._held_similarity = 0.0
+        self._held_until = 0.0
 
     def update(self, rms: float, vad: bool, gate_state: str,
                decision: str, similarity: float, threshold: float,
                buffered_ms: int, enrolled: bool, enabled: bool) -> None:
-        """Write current crowd control state to disk (atomic)."""
+        """Write current crowd control state to disk (atomic).
+
+        Holds 'decided' state for DECISION_HOLD_SECONDS so the viz
+        can catch it even though the capture loop resets to 'idle' each frame.
+        """
+        now = time.time()
+
+        # Latch new decisions
+        if gate_state == "decided":
+            self._held_gate_state = "decided"
+            self._held_decision = decision
+            self._held_similarity = similarity
+            self._held_until = now + DECISION_HOLD_SECONDS
+
+        # Use held state if still within hold window
+        if now < self._held_until:
+            gate_state = self._held_gate_state
+            decision = self._held_decision
+            similarity = self._held_similarity
+        elif gate_state != "accumulating":
+            # Hold expired, reset
+            self._held_gate_state = "idle"
+            self._held_decision = "pending"
+            self._held_similarity = 0.0
+
         data = {
-            "ts": time.time(),
+            "ts": now,
             "rms": round(rms, 1),
             "vad": vad,
             "gate_state": gate_state,
