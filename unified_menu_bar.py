@@ -1172,16 +1172,17 @@ class VoiceLoopMenuBar(rumps.App):
         )
 
     def on_cc_debug_viz(self, sender):
-        """Launch the Crowd Control debug visualizer window."""
-        if getattr(self, '_cc_viz_proc', None) and self._cc_viz_proc.poll() is None:
-            rumps.notification("Debug Viz", "", "Already open.", sound=False)
-            return
-        import subprocess, sys
+        """Launch the Crowd Control debug visualizer in a Terminal window."""
+        import subprocess
         viz_script = self.project_dir / "scripts" / "crowd_control_viz.py"
         config_dir = str(self.runtime_dir)
-        self._cc_viz_proc = subprocess.Popen(
-            [sys.executable, str(viz_script), "--config-dir", config_dir],
-            cwd=str(self.project_dir))
+        venv_python = self.project_dir / "venv" / "bin" / "python3"
+        python_cmd = str(venv_python) if venv_python.exists() else "python3"
+        cmd = f"cd {self.project_dir} && {python_cmd} {viz_script} --config-dir {config_dir}"
+        subprocess.Popen([
+            "osascript", "-e",
+            f'tell application "Terminal" to do script "{cmd}"'
+        ])
 
     def on_toggle_debug_mode(self, sender):
         """Toggle debug mode (inline temperature/barge-in tags in agent messages)."""
