@@ -1104,12 +1104,7 @@ class VoiceLoopMenuBar(rumps.App):
         return mod.EnrollmentSession
 
     def on_enroll_voice(self, sender):
-        """Launch the enrollment GUI window."""
-        # Guard: don't open multiple enrollment windows
-        if getattr(self, '_enrollment_proc', None) and self._enrollment_proc.poll() is None:
-            rumps.notification("Enrollment", "", "Enrollment window is already open.", sound=False)
-            return
-
+        """Launch the enrollment in a Terminal window."""
         # Stop voice pipeline to free the microphone
         was_running = self.ears_running
         if was_running:
@@ -1117,42 +1112,22 @@ class VoiceLoopMenuBar(rumps.App):
             import time as _time
             _time.sleep(4)  # Wait for CoreAudio to fully release the device
 
-        # Launch enrollment GUI as a subprocess
         import subprocess
-        import sys
 
         gui_script = self.project_dir / "scripts" / "enroll_gui.py"
         config_dir = str(Path(self.config.config_path).parent)
+        venv_python = self.project_dir / "venv" / "bin" / "python3"
+        python_cmd = str(venv_python) if venv_python.exists() else "python3"
+        cmd = f"cd {self.project_dir} && {python_cmd} {gui_script} --config-dir {config_dir}"
 
         try:
-            self._enrollment_proc = subprocess.Popen(
-                [sys.executable, str(gui_script), "--config-dir", config_dir],
-                cwd=str(self.project_dir)
-            )
-            logger.info("Enrollment GUI launched (PID: %d)", self._enrollment_proc.pid)
-
-            # Monitor the subprocess in a background thread — restart pipeline when done
-            import threading
-            def _wait_for_enrollment():
-                self._enrollment_proc.wait()
-                logger.info("Enrollment GUI closed (exit code: %d)", self._enrollment_proc.returncode)
-                # Check if a new profile was created
-                profile_path = Path(config_dir) / "speaker_profile.npy"
-                if profile_path.exists():
-                    self._pending_menu_rebuild = True
-                # Restart pipeline if it was running
-                if was_running:
-                    self.on_start_all(None)
-            threading.Thread(target=_wait_for_enrollment, daemon=True).start()
-
-        except FileNotFoundError:
-            logger.error("Enrollment script not found: %s", gui_script)
-            rumps.alert("Enrollment Error",
-                f"Enrollment script not found.\nExpected: {gui_script}")
-            if was_running:
-                self.on_start_all(None)
+            subprocess.Popen([
+                "osascript", "-e",
+                f'tell application "Terminal" to do script "{cmd}"'
+            ])
+            logger.info("Enrollment launched in Terminal")
         except Exception as e:
-            logger.error(f"Failed to launch enrollment GUI: {e}")
+            logger.error(f"Failed to launch enrollment: {e}")
             rumps.alert("Enrollment Error", f"Failed to launch enrollment:\n{e}")
             if was_running:
                 self.on_start_all(None)
