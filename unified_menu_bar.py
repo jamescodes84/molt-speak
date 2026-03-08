@@ -620,6 +620,12 @@ class VoiceLoopMenuBar(rumps.App):
                 callback=self.on_clear_voice_profile
             ))
 
+        crowd_menu.add(rumps.separator)
+        crowd_menu.add(rumps.MenuItem(
+            "Debug Visualizer",
+            callback=self.on_cc_debug_viz
+        ))
+
         self.menu.add(crowd_menu)
 
         # Honorific selection (sir/madam/custom)
@@ -1164,6 +1170,18 @@ class VoiceLoopMenuBar(rumps.App):
             "Voice profile cleared. Crowd Control disabled.",
             sound=False
         )
+
+    def on_cc_debug_viz(self, sender):
+        """Launch the Crowd Control debug visualizer window."""
+        if getattr(self, '_cc_viz_proc', None) and self._cc_viz_proc.poll() is None:
+            rumps.notification("Debug Viz", "", "Already open.", sound=False)
+            return
+        import subprocess, sys
+        viz_script = self.project_dir / "scripts" / "crowd_control_viz.py"
+        config_dir = str(self.runtime_dir)
+        self._cc_viz_proc = subprocess.Popen(
+            [sys.executable, str(viz_script), "--config-dir", config_dir],
+            cwd=str(self.project_dir))
 
     def on_toggle_debug_mode(self, sender):
         """Toggle debug mode (inline temperature/barge-in tags in agent messages)."""

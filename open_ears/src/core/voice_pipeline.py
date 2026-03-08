@@ -156,6 +156,7 @@ class UltraFastVoicePipeline:
         # Crowd Control: speaker verification gate (opt-in via menu bar)
         self.speaker_gate = None
         self._crowd_control_enabled = False
+        self._cc_notifier = None
         self._init_crowd_control()
 
         # Ensure lifespan data is saved on shutdown (atexit + SIGTERM)
@@ -271,6 +272,12 @@ class UltraFastVoicePipeline:
         """Initialize Crowd Control speaker gate if enabled and enrolled."""
         self._cc_last_check = 0  # timestamp of last config re-read
         self._cc_check_interval = 5  # re-read config every 5 seconds
+        try:
+            from src.services.crowd_control_notifier import CrowdControlNotifier
+            cc_status_path = Path(settings.PROJECT_DIR) / "runtime" / "crowd_control_status.json"
+            self._cc_notifier = CrowdControlNotifier(cc_status_path)
+        except Exception as e:
+            logger.debug("CC notifier init failed: %s", e)
         try:
             self._load_speaker_gate()
         except ImportError:
@@ -567,14 +574,36 @@ end tell
 
             # Crowd Control: if enabled, verify this is the owner's voice.
             # Runs only when speech is confirmed by Silero — no overhead otherwise.
+            cc_gate_state = "idle"
+            cc_decision = "pending"
+            cc_similarity = 0.0
+            cc_buffered_ms = 0
             if (is_confirmed_speech and self._crowd_control_enabled
                     and self.speaker_gate and self.speaker_gate.is_enrolled):
-                is_owner, similarity = self.speaker_gate.verify(audio_data)
+                is_owner, cc_similarity = self.speaker_gate.verify(audio_data)
+                cc_buffered_ms = int(len(np.concatenate(
+                    self.speaker_gate._verification_buffer)) / 16) if self.speaker_gate._verification_buffer else 0
+                cc_gate_state = "decided" if self.speaker_gate._verification_decided else "accumulating"
+                cc_decision = "accepted" if is_owner else "rejected"
                 if not is_owner:
                     is_confirmed_speech = False
                     self._consecutive_speech_frames = 0
                     if self.debug_mode:
-                        print(f"\n🛡️  Crowd Control: rejected (similarity: {similarity:.2f})")
+                        print(f"\n🛡️  Crowd Control: rejected (similarity: {cc_similarity:.2f})")
+
+            # Write CC debug status (for debug visualizer)
+            if self._crowd_control_enabled and self._cc_notifier:
+                self._cc_notifier.update(
+                    rms=float(max_amp),
+                    vad=is_confirmed_speech,
+                    gate_state=cc_gate_state,
+                    decision=cc_decision,
+                    similarity=cc_similarity,
+                    threshold=self.speaker_gate._threshold if self.speaker_gate else 0.82,
+                    buffered_ms=cc_buffered_ms,
+                    enrolled=self.speaker_gate.is_enrolled if self.speaker_gate else False,
+                    enabled=True,
+                )
 
             has_speech = (
                 (self._consecutive_speech_frames >= self._barge_speech_frames_required and is_confirmed_speech)

@@ -130,6 +130,8 @@ rm -f "$RUNTIME_DIR/agent_shutdown.signal"
 rm -f "$RUNTIME_DIR/ears_pause.signal"
 rm -f "$RUNTIME_DIR/mouth_status.txt"
 rm -f "$RUNTIME_DIR/ears_status.txt"
+rm -f "$RUNTIME_DIR/crowd_control_status.json"
+rm -f "$RUNTIME_DIR/crowd_control_status.tmp"
 
 # Clear speech output queue to prevent old messages on restart
 : > "$RUNTIME_DIR/speech_output.txt"
