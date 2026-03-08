@@ -585,6 +585,43 @@ class VoiceLoopMenuBar(rumps.App):
 
         self.menu.add(boldness_menu)
 
+        # Crowd Control (speaker verification gate)
+        crowd_menu = rumps.MenuItem("🛡️ Crowd Control")
+
+        cc_enabled = self.config.crowd_control_enabled
+        profile_exists = (Path(self.config.config_path).parent / "speaker_profile.npy").exists()
+
+        # On/Off toggle
+        if profile_exists:
+            cc_check = "✓ " if cc_enabled else "   "
+            crowd_menu.add(rumps.MenuItem(
+                f"{cc_check}Enabled",
+                callback=self.on_toggle_crowd_control
+            ))
+        else:
+            crowd_menu.add(rumps.MenuItem(
+                "   No voice profile",
+                callback=None
+            ))
+
+        crowd_menu.add(rumps.separator)
+
+        # Enroll / Re-enroll
+        enroll_label = "Re-enroll Voice..." if profile_exists else "Enroll Voice..."
+        crowd_menu.add(rumps.MenuItem(
+            enroll_label,
+            callback=self.on_enroll_voice
+        ))
+
+        # Clear profile (only if enrolled)
+        if profile_exists:
+            crowd_menu.add(rumps.MenuItem(
+                "Clear Voice Profile",
+                callback=self.on_clear_voice_profile
+            ))
+
+        self.menu.add(crowd_menu)
+
         # Honorific selection (sir/madam/custom)
         current_honorific = self.get_current_honorific()
         honorific_menu = rumps.MenuItem(f"Called: {current_honorific.title()}")
@@ -1025,6 +1062,106 @@ class VoiceLoopMenuBar(rumps.App):
                     _truncated_alert("Invalid Value", "Please enter a number between 1 and 100")
         except Exception as e:
             logger.error(f"Error in custom boldness dialog: {e}")
+
+    def on_toggle_crowd_control(self, sender):
+        """Toggle Crowd Control (speaker verification gate) on/off."""
+        new_value = not self.config.crowd_control_enabled
+        self.config.crowd_control_enabled = new_value
+        logger.info(f"Crowd Control {'enabled' if new_value else 'disabled'}")
+        self.build_menu()
+
+        # Notify running voice pipeline if possible
+        status = "ON" if new_value else "OFF"
+        rumps.notification(
+            "Crowd Control",
+            "",
+            f"Speaker verification {status}",
+            sound=False
+        )
+
+    def on_enroll_voice(self, sender):
+        """Launch voice enrollment in a background thread."""
+        import threading
+
+        def _do_enrollment():
+            try:
+                from open_ears.src.services.speaker_gate import SpeakerGate
+                from open_ears.src.services.enrollment import EnrollmentSession
+
+                profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
+                gate = SpeakerGate(profile_path=profile_path)
+                session = EnrollmentSession(gate)
+
+                rumps.notification(
+                    "Crowd Control — Enrollment",
+                    "",
+                    f"Recording {session.num_phrases} phrases. Please speak when prompted.",
+                    sound=True
+                )
+
+                import time as _time
+                _time.sleep(2)  # Give user time to read notification
+
+                for i, prompt in enumerate(session.prompts):
+                    rumps.notification(
+                        f"Phrase {i + 1}/{session.num_phrases}",
+                        "",
+                        f'Say: "{prompt}"',
+                        sound=True
+                    )
+                    _time.sleep(1)  # Brief pause before recording
+
+                    audio = session.record_phrase()
+                    if audio is not None and session.add_recording(audio):
+                        logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
+                    else:
+                        rumps.notification(
+                            "Enrollment",
+                            "",
+                            f"Phrase {i + 1} too quiet — skipping. You can re-enroll later.",
+                            sound=False
+                        )
+
+                if session.is_complete and session.finalize():
+                    self.config.crowd_control_enabled = True
+                    self.build_menu()
+                    rumps.notification(
+                        "Crowd Control",
+                        "",
+                        "Voice profile saved! Crowd Control is now active.",
+                        sound=True
+                    )
+                else:
+                    rumps.notification(
+                        "Crowd Control",
+                        "",
+                        "Enrollment incomplete. Please try again in a quieter room.",
+                        sound=False
+                    )
+            except ImportError:
+                rumps.alert(
+                    "Missing Dependency",
+                    "resemblyzer is not installed.\nRun: pip install resemblyzer"
+                )
+            except Exception as e:
+                logger.error(f"Enrollment failed: {e}")
+                rumps.alert("Enrollment Error", str(e))
+
+        threading.Thread(target=_do_enrollment, daemon=True).start()
+
+    def on_clear_voice_profile(self, sender):
+        """Delete the enrolled voice profile."""
+        profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
+        if profile_path.exists():
+            profile_path.unlink()
+        self.config.crowd_control_enabled = False
+        self.build_menu()
+        rumps.notification(
+            "Crowd Control",
+            "",
+            "Voice profile cleared. Crowd Control disabled.",
+            sound=False
+        )
 
     def on_toggle_debug_mode(self, sender):
         """Toggle debug mode (inline temperature/barge-in tags in agent messages)."""

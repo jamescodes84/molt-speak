@@ -153,6 +153,11 @@ class UltraFastVoicePipeline:
         self.pragmatic = PragmaticAnalyzer()
         self.environment_memory = EnvironmentMemory()
 
+        # Crowd Control: speaker verification gate (opt-in via menu bar)
+        self.speaker_gate = None
+        self._crowd_control_enabled = False
+        self._init_crowd_control()
+
         # Ensure lifespan data is saved on shutdown (atexit + SIGTERM)
         import atexit
         import signal as _signal
@@ -261,6 +266,53 @@ class UltraFastVoicePipeline:
             return config.agent_boldness
         except Exception:
             return 40  # Default fallback
+
+    def _init_crowd_control(self):
+        """Initialize Crowd Control speaker gate if enabled and enrolled."""
+        try:
+            from src.services.speaker_gate import SpeakerGate
+            profile_path = settings.SPEAKER_PROFILE_PATH
+            if profile_path.exists():
+                self.speaker_gate = SpeakerGate(
+                    profile_path=profile_path,
+                    threshold=settings.SPEAKER_GATE_THRESHOLD,
+                    sample_rate=self.sample_rate,
+                )
+                # Check if user has opted in via config
+                self._crowd_control_enabled = self._get_crowd_control_enabled()
+                if self._crowd_control_enabled:
+                    print("🛡️  Crowd Control active (speaker verification enabled)")
+                else:
+                    print("🛡️  Crowd Control ready (voice profile loaded, toggle ON in menu)")
+            else:
+                logger.debug("No speaker profile found — Crowd Control inactive")
+        except ImportError:
+            logger.debug("resemblyzer not installed — Crowd Control unavailable")
+        except Exception as e:
+            logger.warning("Crowd Control init failed: %s", e)
+
+    def _get_crowd_control_enabled(self) -> bool:
+        """Check if Crowd Control is enabled via ConfigManager."""
+        try:
+            import sys as _sys
+            config_manager_path = settings.PROJECT_DIR / "src" / "config"
+            if str(config_manager_path) not in _sys.path:
+                _sys.path.insert(0, str(config_manager_path))
+            from config_manager import ConfigManager
+            config = ConfigManager()
+            return getattr(config, 'crowd_control_enabled', False)
+        except Exception:
+            return settings.CROWD_CONTROL_ENABLED
+
+    def set_crowd_control(self, enabled: bool):
+        """Toggle Crowd Control on/off at runtime (called from menu bar)."""
+        self._crowd_control_enabled = enabled
+        if enabled and self.speaker_gate and self.speaker_gate.is_enrolled:
+            print("🛡️  Crowd Control ON — only your voice will be processed")
+        elif enabled:
+            print("🛡️  Crowd Control ON but no voice profile — enroll first")
+        else:
+            print("🛡️  Crowd Control OFF — all speech will be processed")
 
     def _shutdown_social_cues(self):
         """Save lifespan data on shutdown."""
@@ -487,6 +539,17 @@ end tell
             else:
                 is_confirmed_speech = False
 
+            # Crowd Control: if enabled, verify this is the owner's voice.
+            # Runs only when speech is confirmed by Silero — no overhead otherwise.
+            if (is_confirmed_speech and self._crowd_control_enabled
+                    and self.speaker_gate and self.speaker_gate.is_enrolled):
+                is_owner, similarity = self.speaker_gate.verify(audio_data)
+                if not is_owner:
+                    is_confirmed_speech = False
+                    self._consecutive_speech_frames = 0
+                    if self.debug_mode:
+                        print(f"\n🛡️  Crowd Control: rejected (similarity: {similarity:.2f})")
+
             has_speech = (
                 (self._consecutive_speech_frames >= self._barge_speech_frames_required and is_confirmed_speech)
                 or (self.is_recording and frame_above_threshold)
@@ -539,6 +602,9 @@ end tell
                         # Reset Silero RNN state between utterances
                         if self._silero_available:
                             self._silero_vad.reset_states()
+                        # Reset speaker gate verification state for next utterance
+                        if self.speaker_gate:
+                            self.speaker_gate.reset()
                 else:
                     # Not recording — maintain pre-roll buffer for word onset capture
                     self.pre_roll_buffer.append(audio_data)
