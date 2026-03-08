@@ -1098,16 +1098,10 @@ class VoiceLoopMenuBar(rumps.App):
         return mod.EnrollmentSession
 
     def on_enroll_voice(self, sender):
-        """Interactive voice enrollment using native macOS dialogs."""
-        # Welcome dialog
-        r = rumps.alert(
-            "Voice Enrollment",
-            "Molt Speak will learn your voice so it can ignore other speakers.\n\n"
-            "You'll say 5 short phrases (4 seconds each).\n"
-            "Find a quiet room and click Start when ready.",
-            ok="Start", cancel="Cancel"
-        )
-        if r == 0:
+        """Launch the enrollment GUI window."""
+        # Guard: don't open multiple enrollment windows
+        if getattr(self, '_enrollment_proc', None) and self._enrollment_proc.poll() is None:
+            rumps.notification("Enrollment", "", "Enrollment window is already open.", sound=False)
             return
 
         # Stop voice pipeline to free the microphone
@@ -1117,117 +1111,43 @@ class VoiceLoopMenuBar(rumps.App):
             import time as _time
             _time.sleep(4)  # Wait for CoreAudio to fully release the device
 
+        # Launch enrollment GUI as a subprocess
+        import subprocess
+        import sys
+
+        gui_script = self.project_dir / "scripts" / "enroll_gui.py"
+        config_dir = str(Path(self.config.config_path).parent)
+
         try:
-            # Warm up the mic — flush any stale CoreAudio state
-            try:
-                import sounddevice as sd
-                warmup = sd.rec(int(0.5 * 16000), samplerate=16000, channels=1, dtype='float32')
-                sd.wait()
-                logger.info("Mic warmup complete")
-            except Exception as e:
-                logger.warning("Mic warmup failed: %s", e)
+            self._enrollment_proc = subprocess.Popen(
+                [sys.executable, str(gui_script), "--config-dir", config_dir],
+                cwd=str(self.project_dir)
+            )
+            logger.info("Enrollment GUI launched (PID: %d)", self._enrollment_proc.pid)
 
-            SpeakerGate = self._load_speaker_gate_class()
-            EnrollmentSession = self._load_enrollment_class()
+            # Monitor the subprocess in a background thread — restart pipeline when done
+            import threading
+            def _wait_for_enrollment():
+                self._enrollment_proc.wait()
+                logger.info("Enrollment GUI closed (exit code: %d)", self._enrollment_proc.returncode)
+                # Check if a new profile was created
+                profile_path = Path(config_dir) / "speaker_profile.npy"
+                if profile_path.exists():
+                    self._pending_menu_rebuild = True
+                # Restart pipeline if it was running
+                if was_running:
+                    self.on_start_all(None)
+            threading.Thread(target=_wait_for_enrollment, daemon=True).start()
 
-            profile_path = Path(self.config.config_path).parent / "speaker_profile.npy"
-            gate = SpeakerGate(profile_path=profile_path)
-            session = EnrollmentSession(gate)
-
-            for i, prompt in enumerate(session.prompts):
-                while True:
-                    # Show phrase — user clicks Record when ready
-                    r = rumps.alert(
-                        f"Phrase {i + 1} of {session.num_phrases}",
-                        f'Click Record, then say:\n\n"{prompt}"',
-                        ok="Record", cancel="Cancel"
-                    )
-                    if r == 0:  # Cancel
-                        return
-
-                    # Audio cue + visual indicator
-                    rumps.notification("Recording...", "",
-                        f"Phrase {i + 1}/{session.num_phrases} — speak now!",
-                        sound=True)
-                    self.title = f"\U0001f3a4 {i + 1}/{session.num_phrases}"
-
-                    # Record (blocks ~4s — user is speaking, no interaction needed)
-                    audio = session.record_phrase()
-                    self.title = "\U0001f99e"
-
-                    if audio is not None and session.add_recording(audio):
-                        logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
-                        break  # Success — next phrase
-                    else:
-                        r = rumps.alert(
-                            "Try Again",
-                            "Recording was too quiet.\n"
-                            "Speak a bit louder and try again.",
-                            ok="Retry", cancel="Cancel"
-                        )
-                        if r == 0:
-                            return
-
-            # Finalize enrollment
-            if session.finalize():
-                # Verification test — record a short phrase and check it matches
-                r = rumps.alert(
-                    "Verification Test",
-                    "Almost done! Say anything for 3 seconds to verify your voice profile.",
-                    ok="Verify", cancel="Skip"
-                )
-                if r == 1:  # Verify
-                    rumps.notification("Verifying...", "", "Speak now!", sound=True)
-                    self.title = "\U0001f3a4 TEST"
-                    import sounddevice as sd
-                    test_audio = sd.rec(int(3 * 16000), samplerate=16000, channels=1, dtype='float32')
-                    sd.wait()
-                    test_audio = test_audio.flatten()
-                    self.title = "\U0001f99e"
-
-                    # Run verification against the new voiceprint
-                    gate.reset()
-                    is_owner, similarity = gate.verify(test_audio)
-                    logger.info(f"Verification test: is_owner={is_owner}, similarity={similarity:.3f}")
-
-                    if is_owner:
-                        rumps.alert(
-                            "Voice Profile Saved!",
-                            f"Verification passed (confidence: {similarity:.0%}).\n\n"
-                            "Crowd Control is now active.\n"
-                            "Molt Speak will only respond to your voice."
-                        )
-                    else:
-                        rumps.alert(
-                            "Verification Warning",
-                            f"Your test phrase scored {similarity:.0%} (needs {gate.threshold:.0%}).\n\n"
-                            "The voice profile was saved, but you may want to\n"
-                            "re-enroll in a quieter environment for better accuracy."
-                        )
-                else:
-                    rumps.alert(
-                        "Voice Profile Saved!",
-                        "Crowd Control is now active.\n"
-                        "Molt Speak will only respond to your voice."
-                    )
-
-                self.config.crowd_control_enabled = True
-                self._pending_menu_rebuild = True
-            else:
-                rumps.alert("Enrollment Failed",
-                    "Could not create voice profile. Please try again.")
-
-        except ImportError as e:
-            logger.error(f"Missing dependency for enrollment: {e}")
-            rumps.alert("Missing Dependency",
-                f"Required package not installed:\n{e}")
-        except Exception as e:
-            logger.error(f"Enrollment failed: {e}")
+        except FileNotFoundError:
+            logger.error("Enrollment script not found: %s", gui_script)
             rumps.alert("Enrollment Error",
-                f"Something went wrong:\n{e}")
-        finally:
-            self.title = "\U0001f99e"
-            # Restart voice pipeline if it was running before enrollment
+                f"Enrollment script not found.\nExpected: {gui_script}")
+            if was_running:
+                self.on_start_all(None)
+        except Exception as e:
+            logger.error(f"Failed to launch enrollment GUI: {e}")
+            rumps.alert("Enrollment Error", f"Failed to launch enrollment:\n{e}")
             if was_running:
                 self.on_start_all(None)
 
