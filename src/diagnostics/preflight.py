@@ -13,6 +13,7 @@ Usage:
 import argparse
 import importlib
 import os
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -77,6 +78,7 @@ class PreflightChecker:
         report.results.append(self._check_core_imports())
         report.results.append(self._check_sounddevice_import())
         report.results.append(self._check_microphone())
+        report.results.append(self._check_webcam())
         report.results.append(self._check_audio_output())
         report.results.append(self._check_whisper_import())
         report.results.append(self._check_tts_import())
@@ -103,6 +105,7 @@ class PreflightChecker:
         report.results.append(self._check_core_imports())
         report.results.append(self._check_sounddevice_import())
         report.results.append(self._check_microphone())
+        report.results.append(self._check_webcam())
         report.results.append(self._check_audio_output())
         report.results.append(self._check_whisper_import())
         report.results.append(self._check_tts_import())
@@ -116,9 +119,9 @@ class PreflightChecker:
     # ── Individual checks ──────────────────────────────────────────────────
 
     def _check_python_version(self) -> CheckResult:
-        """Check Python version is 3.10+."""
+        """Check Python version is 3.9+."""
         v = sys.version_info
-        if v.major >= 3 and v.minor >= 10:
+        if v.major >= 3 and v.minor >= 9:
             return CheckResult(
                 "Python version",
                 True,
@@ -127,8 +130,8 @@ class PreflightChecker:
         return CheckResult(
             "Python version",
             False,
-            f"Python {v.major}.{v.minor}.{v.micro} (need 3.10+)",
-            fix="Install Python 3.10 or newer from https://www.python.org/downloads/",
+            f"Python {v.major}.{v.minor}.{v.micro} (need 3.9+)",
+            fix="Install Python 3.9 or newer from https://www.python.org/downloads/",
         )
 
     def _check_venv(self) -> CheckResult:
@@ -289,6 +292,44 @@ class PreflightChecker:
                 False,
                 f"Could not check microphone: {e}",
                 fix="Check System Settings > Sound > Input. Make sure a microphone is plugged in.",
+            )
+
+    def _check_webcam(self) -> CheckResult:
+        """Check that a webcam/camera is connected (macOS)."""
+        try:
+            result = subprocess.run(
+                ["system_profiler", "SPCameraDataType"],
+                capture_output=True, text=True, timeout=10,
+            )
+            output = result.stdout.strip()
+            # system_profiler returns a header even with no cameras;
+            # actual cameras have indented entries with "Model ID:" lines
+            if "Model ID:" in output:
+                # Extract camera name (first non-header, non-blank line)
+                for line in output.splitlines():
+                    line = line.strip()
+                    if line and not line.endswith(":") and "Model ID" not in line and "Unique ID" not in line:
+                        return CheckResult("Webcam", True, line)
+                return CheckResult("Webcam", True, "Camera detected")
+            return CheckResult(
+                "Webcam",
+                False,
+                "No camera detected",
+                fix="Plug in a webcam or USB camera.",
+            )
+        except FileNotFoundError:
+            return CheckResult(
+                "Webcam",
+                False,
+                "Cannot check camera (system_profiler not found)",
+                fix="This check requires macOS.",
+            )
+        except Exception as e:
+            return CheckResult(
+                "Webcam",
+                False,
+                f"Could not check camera: {e}",
+                fix="Plug in a webcam or USB camera.",
             )
 
     def _check_audio_output(self) -> CheckResult:

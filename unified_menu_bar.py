@@ -1110,8 +1110,11 @@ class VoiceLoopMenuBar(rumps.App):
                         stop_script = self.project_dir / "scripts" / "stop_voice_loop.sh"
                         subprocess.run(["bash", str(stop_script)], cwd=str(self.project_dir),
                                        capture_output=True, timeout=15)
-                        subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
-                                       capture_output=True, timeout=15)
+                        result = subprocess.run(self._start_script_cmd(), cwd=str(self.project_dir),
+                                       capture_output=True, text=True, timeout=15)
+                        if result.returncode != 0:
+                            logger.error(f"Voice loop failed to start with new provider: {result.stdout + result.stderr}")
+                            return
                         logger.info(f"Voice loop started with new provider: {provider}")
 
                         time.sleep(1.0)
