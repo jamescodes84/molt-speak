@@ -9,6 +9,16 @@ Launched as a subprocess from the menu bar or CLI:
 """
 from __future__ import annotations
 
+import sys
+
+# macOS: allow GUI windows when launched from a background process (menu bar app)
+if sys.platform == "darwin":
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyRegular
+        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyRegular)
+    except ImportError:
+        pass
+
 import argparse
 import json
 import time
