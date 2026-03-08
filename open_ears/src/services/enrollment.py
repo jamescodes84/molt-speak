@@ -3,12 +3,12 @@
 Handles the recording and validation of voice enrollment phrases.
 Can be driven by the CLI script or by the menu bar UI.
 """
+from __future__ import annotations
 
 import logging
 import time
 
 import numpy as np
-import sounddevice as sd
 
 logger = logging.getLogger("open_ears.enrollment")
 
@@ -48,6 +48,7 @@ class EnrollmentSession:
             Recorded audio as numpy array, or None if recording failed.
         """
         try:
+            import sounddevice as sd
             audio = sd.rec(
                 int(duration * SAMPLE_RATE),
                 samplerate=SAMPLE_RATE,

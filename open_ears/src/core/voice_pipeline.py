@@ -269,29 +269,34 @@ class UltraFastVoicePipeline:
 
     def _init_crowd_control(self):
         """Initialize Crowd Control speaker gate if enabled and enrolled."""
+        self._cc_last_check = 0  # timestamp of last config re-read
+        self._cc_check_interval = 5  # re-read config every 5 seconds
         try:
-            from src.services.speaker_gate import SpeakerGate
-            profile_path = settings.SPEAKER_PROFILE_PATH
-            if profile_path.exists():
-                self.speaker_gate = SpeakerGate(
-                    profile_path=profile_path,
-                    threshold=settings.SPEAKER_GATE_THRESHOLD,
-                    sample_rate=self.sample_rate,
-                )
-                # Check if user has opted in via config
-                self._crowd_control_enabled = self._get_crowd_control_enabled()
-                if self._crowd_control_enabled:
-                    print("🛡️  Crowd Control active (speaker verification enabled)")
-                else:
-                    print("🛡️  Crowd Control ready (voice profile loaded, toggle ON in menu)")
-            else:
-                logger.debug("No speaker profile found — Crowd Control inactive")
+            self._load_speaker_gate()
         except ImportError:
             logger.debug("resemblyzer not installed — Crowd Control unavailable")
         except Exception as e:
             logger.warning("Crowd Control init failed: %s", e)
 
-    def _get_crowd_control_enabled(self) -> bool:
+    def _load_speaker_gate(self):
+        """Load or reload the speaker gate from disk."""
+        from src.services.speaker_gate import SpeakerGate
+        profile_path = settings.SPEAKER_PROFILE_PATH
+        if profile_path.exists():
+            self.speaker_gate = SpeakerGate(
+                profile_path=profile_path,
+                threshold=settings.SPEAKER_GATE_THRESHOLD,
+                sample_rate=self.sample_rate,
+            )
+            self._crowd_control_enabled = self._get_crowd_control_enabled()
+            if self._crowd_control_enabled:
+                print("🛡️  Crowd Control active (speaker verification enabled)")
+            else:
+                print("🛡️  Crowd Control ready (voice profile loaded, toggle ON in menu)")
+        else:
+            logger.debug("No speaker profile found — Crowd Control inactive")
+
+    def _get_crowd_control_enabled(self):
         """Check if Crowd Control is enabled via ConfigManager."""
         try:
             import sys as _sys
@@ -304,15 +309,33 @@ class UltraFastVoicePipeline:
         except Exception:
             return settings.CROWD_CONTROL_ENABLED
 
-    def set_crowd_control(self, enabled: bool):
-        """Toggle Crowd Control on/off at runtime (called from menu bar)."""
-        self._crowd_control_enabled = enabled
-        if enabled and self.speaker_gate and self.speaker_gate.is_enrolled:
-            print("🛡️  Crowd Control ON — only your voice will be processed")
-        elif enabled:
-            print("🛡️  Crowd Control ON but no voice profile — enroll first")
-        else:
-            print("🛡️  Crowd Control OFF — all speech will be processed")
+    def _refresh_crowd_control(self):
+        """Periodically re-read crowd control config and reload profile if changed."""
+        now = time.time()
+        if now - self._cc_last_check < self._cc_check_interval:
+            return
+        self._cc_last_check = now
+
+        new_enabled = self._get_crowd_control_enabled()
+        profile_path = settings.SPEAKER_PROFILE_PATH
+
+        # Detect new enrollment or profile deletion
+        if profile_path.exists() and self.speaker_gate is None:
+            try:
+                self._load_speaker_gate()
+                logger.info("Crowd Control: new voice profile detected")
+            except Exception as e:
+                logger.debug("Crowd Control reload failed: %s", e)
+        elif not profile_path.exists() and self.speaker_gate is not None:
+            self.speaker_gate = None
+            self._crowd_control_enabled = False
+            logger.info("Crowd Control: voice profile removed")
+            return
+
+        if new_enabled != self._crowd_control_enabled:
+            self._crowd_control_enabled = new_enabled
+            status = "ON" if new_enabled else "OFF"
+            print(f"🛡️  Crowd Control toggled {status}")
 
     def _shutdown_social_cues(self):
         """Save lifespan data on shutdown."""
@@ -498,6 +521,9 @@ end tell
         """Capture audio with silence-based voice activity detection"""
         while self.running:
             time.sleep(self.check_interval)  # Check every 100ms for responsiveness
+
+            # Periodically re-read crowd control config (every ~5s, not every frame)
+            self._refresh_crowd_control()
 
             # Use higher threshold when agent is speaking to prevent TTS bleed.
             # BUT: once we're already recording (speech confirmed by consecutive

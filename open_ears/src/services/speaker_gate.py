@@ -6,6 +6,7 @@ belongs to the enrolled owner. Lazy-loads the encoder on first use.
 This is an opt-in feature — only active when the user enables
 "Crowd Control" from the menu bar AND has an enrolled voice profile.
 """
+from __future__ import annotations
 
 import logging
 import time
@@ -39,6 +40,7 @@ class SpeakerGate:
         # Verification buffer — accumulates frames until we have enough audio
         self._verification_buffer: list[np.ndarray] = []
         self._verification_decided = False
+        self._last_result = (True, 1.0)
 
         # Load voiceprint from disk if it exists (cheap — just a numpy load)
         if self._profile_path.exists():

@@ -1113,40 +1113,47 @@ class VoiceLoopMenuBar(rumps.App):
                 rumps.notification(
                     "Crowd Control — Enrollment",
                     "",
-                    f"Recording {session.num_phrases} phrases. Please speak when prompted.",
+                    f"Recording {session.num_phrases} phrases. Speak when you hear the chime.",
                     sound=True
                 )
 
                 import time as _time
-                _time.sleep(2)  # Give user time to read notification
+                _time.sleep(3)  # Give user time to read notification
 
                 for i, prompt in enumerate(session.prompts):
-                    rumps.notification(
-                        f"Phrase {i + 1}/{session.num_phrases}",
-                        "",
-                        f'Say: "{prompt}"',
-                        sound=True
-                    )
-                    _time.sleep(1)  # Brief pause before recording
-
-                    audio = session.record_phrase()
-                    if audio is not None and session.add_recording(audio):
-                        logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
-                    else:
+                    attempts = 0
+                    while attempts < 2:  # Allow one retry per phrase
                         rumps.notification(
-                            "Enrollment",
-                            "",
-                            f"Phrase {i + 1} too quiet — skipping. You can re-enroll later.",
-                            sound=False
+                            f"Phrase {i + 1}/{session.num_phrases}",
+                            "Recording starts in 2 seconds...",
+                            f'Say: "{prompt}"',
+                            sound=True
                         )
+                        _time.sleep(2)  # Wait for user to see notification and prepare
+
+                        audio = session.record_phrase()
+                        if audio is not None and session.add_recording(audio):
+                            logger.info(f"Enrolled phrase {i + 1}/{session.num_phrases}")
+                            break
+                        else:
+                            attempts += 1
+                            if attempts < 2:
+                                rumps.notification(
+                                    "Enrollment",
+                                    "",
+                                    f"Phrase {i + 1} too quiet — retrying...",
+                                    sound=False
+                                )
+                                _time.sleep(1)
 
                 if session.is_complete and session.finalize():
                     self.config.crowd_control_enabled = True
-                    self.build_menu()
+                    # Flag for main thread to rebuild menu
+                    self._pending_menu_rebuild = True
                     rumps.notification(
                         "Crowd Control",
                         "",
-                        "Voice profile saved! Crowd Control is now active.",
+                        "Voice profile saved! Restart Molt Speak to activate.",
                         sound=True
                     )
                 else:
@@ -1161,7 +1168,7 @@ class VoiceLoopMenuBar(rumps.App):
                 rumps.notification(
                     "Crowd Control",
                     "",
-                    "resemblyzer not installed. Run: pip install resemblyzer",
+                    f"Missing dependency: {e}",
                     sound=False
                 )
             except Exception as e:
