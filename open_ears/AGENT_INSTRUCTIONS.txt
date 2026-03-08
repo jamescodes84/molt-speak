@@ -1,0 +1,170 @@
+=============================================================================
+AGENT SETUP INSTRUCTIONS - How to Hear Your User
+=============================================================================
+
+Hey Agent! This guide shows you how to listen to voice commands from your user.
+
+⚠️  CRITICAL - READ THIS FIRST ⚠️
+----------------------------------
+DO NOT MODIFY THE VOICE SYSTEM CODE!
+
+The voice system is already built and working. Your job is to:
+✅ Use it as-is
+✅ Run the provided commands
+✅ Follow these instructions
+
+DO NOT:
+❌ Modify any Python files in the voice system
+❌ Try to "improve" or "fix" the voice code
+❌ Add features to the voice system
+❌ Refactor or optimize the voice pipeline
+
+The voice system is COMPLETE. Just use it!
+
+WHAT YOU'LL BE ABLE TO DO
+--------------------------
+After setup, you'll be able to:
+• Hear when your user speaks to you
+• Receive voice commands directly in your input
+• Process commands and respond naturally
+• Have real-time voice conversations
+
+
+HOW THE VOICE SYSTEM WORKS
+---------------------------
+1. User speaks into their microphone
+2. Voice system transcribes speech to text using Whisper AI
+3. Text is AUTOMATICALLY TYPED into your TUI input field
+4. Enter is pressed automatically when user stops speaking
+5. You receive the command just like typed input!
+
+Simple! The voice system types directly into your interface.
+
+
+STEP 1: MAKE SURE YOU'RE RUNNING IN A TUI
+------------------------------------------
+The voice system will type commands directly into whichever terminal window
+is active. Make sure your OpenClaw agent TUI is the focused window when voice
+input arrives.
+
+
+STEP 2: START THE VOICE SYSTEM
+-------------------------------
+Your user needs to run the voice system in a separate terminal:
+
+Terminal 1 (Voice System):
+    cd /path/to/openclaw-ears
+    ./start_voice_system.sh
+
+This shows live audio waveforms and transcription directly in the terminal.
+
+
+STEP 3: FOCUS YOUR TUI
+-----------------------
+Click on your OpenClaw TUI window to make it the active window.
+The voice system will type into whatever window has focus.
+
+
+STEP 4: START LISTENING
+------------------------
+That's it! When your user speaks:
+
+1. They say: "Hello agent, what's the weather?"
+2. Voice system transcribes it
+3. Text appears in your input: "Hello agent, what's the weather?"
+4. Enter is pressed automatically
+5. You receive it as a normal command!
+
+
+WHAT TO EXPECT
+--------------
+• Commands arrive 1-2 seconds after user speaks
+• Text is typed directly into your TUI input
+• Enter is pressed automatically
+• Silence is filtered - you only hear actual speech
+• No file monitoring needed!
+• Works exactly like keyboard input
+
+
+TROUBLESHOOTING
+---------------
+Problem: "Not receiving voice commands"
+→ Make sure your TUI window is focused (clicked)
+→ Voice system must be running (./start_voice_system.sh)
+
+Problem: "Commands going to wrong window"
+→ Click your TUI window to focus it
+→ Voice types into whichever window is active
+
+Problem: "Getting gibberish"
+→ Tell user: "Please run: python main.py --model base"
+   (Uses better AI model for accuracy)
+
+Problem: "Commands are slow"
+→ Normal! AI transcription takes 1-2 seconds
+
+
+TIPS FOR SUCCESS
+-----------------
+1. Keep your TUI window focused:
+   - Click your window after starting voice system
+   - Voice types into the active window
+
+2. Process voice commands like any other input:
+   - They arrive exactly like typed commands
+   - No special handling needed!
+
+3. Give clear responses:
+   - User hears your text responses
+   - Or enable TTS for voice responses
+
+4. Tell user when you're ready:
+   print("🎤 Ready for voice commands! Please focus this window.")
+
+
+ALTERNATIVE: RUNNING VOICE SYSTEM FIRST
+----------------------------------------
+Users can start the voice system before starting your agent:
+
+1. Terminal 1: ./start_voice_system.sh
+2. Terminal 2: Run your OpenClaw agent
+3. Focus Terminal 2 (your TUI)
+4. Speak!
+
+
+THAT'S IT!
+----------
+You don't need any special code for voice input!
+
+The voice system types directly into your TUI, so voice commands work
+exactly like keyboard input. Just run your agent normally and let the
+user start the voice system.
+
+The flow is simple:
+1. User speaks
+2. Text is typed into your TUI
+3. Enter is pressed automatically
+4. You receive it as normal input
+5. You respond!
+
+You're now voice-enabled! 🎉
+
+
+FINAL REMINDER
+--------------
+Remember: DO NOT modify the voice system code!
+
+The voice system is a complete, working tool that types commands into your TUI.
+You don't need to change it, improve it, or understand its internals.
+
+Just run ./start_voice_system.sh and receive voice commands!
+
+If something doesn't work, tell the user - don't try to fix the voice system
+yourself. The voice system is maintained separately.
+
+Your role: Receive and respond to commands
+Voice system's role: Deliver those commands to you
+
+Keep these separate! 🎯
+
+=============================================================================
